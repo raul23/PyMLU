@@ -27,8 +27,8 @@ _SKLEARN_MODULES = ['sklearn.dummy', 'sklearn.gaussian_process',
 
 class Datasets:
 
-    def __init__(self, train_filepath, test_filepath, y_target, features=None,
-                 get_dummies=False, *args, **kwargs):
+    def __init__(self, train_filepath, test_filepath, y_target,
+                 features=None, get_dummies=False, *args, **kwargs):
         # ------------------
         # Parameters parsing
         # ------------------
@@ -38,6 +38,7 @@ class Datasets:
         self.train_filepath = train_filepath
         self.test_filepath = test_filepath
         self.y_target = y_target
+        logger.debug(f"y_target = {self.y_target}")
         if features:
             logger.debug(f"Using only these features: {features}")
             self.features = features
@@ -49,22 +50,26 @@ class Datasets:
         # Data loading
         # ------------
         # Load train data
-        logger.info("Loading training data")
+        logger.debug(f"Train filepath: {train_filepath}")
+        logger.info("Loading training data...")
         self.train_data = pandas.read_csv(train_filepath)
         if not self.features:
             self.features = self.train_data.columns.to_list()
-            # Remove target from features
-            self.features.remove(self.y_target)
             logger.debug(f"Using all {len(self.features)} features")
+        # Remove target from features
+        if self.y_target in self.features:
+            logger.warning(f"Removing the y_target ({self.y_target}) from the "
+                           f"features")
+            self.features.remove(self.y_target)
         self.y = self.train_data[y_target]
         # Load test data
-        logger.info("Loading test data")
+        logger.debug(f"Test filepath: {test_filepath}")
+        logger.info("Loading test data...")
         self.test_data = pandas.read_csv(test_filepath)
         # ------------------
         # Data preprocessing
         # ------------------
         # Select only the required features
-        # TODO: remove target from train X
         self.X = self.train_data[self.features]
         self.X_test = self.test_data[self.features]
         if self.get_dummies:
