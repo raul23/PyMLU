@@ -77,12 +77,19 @@ class ConfigBoilerplate:
                     'cfg_dict': None, 'log_dict': None}
         parser = setup_argparser()
         args = parser.parse_args()
-        assert os.path.isdir(args.cfg_filepath) and args.model, \
-            "Model's configs directory provided (-c argument) but model name " \
-            "(-m argument) missing"
+        if os.path.isdir(args.cfg_filepath):
+            assert args.model, \
+                "Model's configs directory provided (-c argument) but model " \
+                "name (-m argument) missing"
         if args.model:
             if os.path.isdir(args.cfg_filepath):
-                args.cfg_filepath = os.path.join(args.cfg_filepath, args.model + '_config.py')
+                cfg_filepath = os.path.join(args.cfg_filepath, args.model + '_config.py')
+                if os.path.exists(cfg_filepath):
+                    args.cfg_filepath = cfg_filepath
+                else:
+                    args.cfg_filepath = os.path.join(args.cfg_filepath,
+                                                     'model_configs',
+                                                     args.model + '_config.py')
             else:
                 # cfg_filepath not a directory
                 args.cfg_filepath = os.path.join(get_default_cfgs_dirpath(),
