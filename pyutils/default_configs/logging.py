@@ -25,13 +25,13 @@ logging = {
     {
         "console":
         {
-          "level": "DEBUG",
+          "level": "INFO",
           "class": "logging.StreamHandler",
           "formatter": "console"
         },
         "console_only_msg":
         {
-          "level": "DEBUG",
+          "level": "INFO",
           "class": "logging.StreamHandler",
           "formatter": "only_msg"
         },
