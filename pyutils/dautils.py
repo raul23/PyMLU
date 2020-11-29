@@ -6,7 +6,7 @@ from logging import NullHandler
 # import ipdb
 import pandas as pd
 
-from datasets.my_utils import genutils as ge
+from pyutils import genutils as ge
 
 logger = logging.getLogger(ge.get_short_logger_name(__name__))
 logger.addHandler(NullHandler())
