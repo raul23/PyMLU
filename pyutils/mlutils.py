@@ -9,7 +9,7 @@ from logging import NullHandler
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from datasets.my_utils import genutils as ge
+from pyutils import genutils as ge
 
 pandas = None
 
