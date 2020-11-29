@@ -77,11 +77,19 @@ class ConfigBoilerplate:
                     'cfg_dict': None, 'log_dict': None}
         parser = setup_argparser()
         args = parser.parse_args()
-        if os.path.isdir(args.cfg_filepath) and not args.model:
-            raise RuntimeError("Config directory provided but model (-m) "
-                               "argument missing")
+        assert os.path.isdir(args.cfg_filepath) and args.model, \
+            "Model's configs directory provided (-c argument) but model name " \
+            "(-m argument) missing"
         if args.model:
-            args.cfg_filepath = os.path.join(args.cfg_filepath, args.model + '_config.py')
+            if os.path.isdir(args.cfg_filepath):
+                args.cfg_filepath = os.path.join(args.cfg_filepath, args.model + '_config.py')
+            else:
+                # cfg_filepath not a directory
+                args.cfg_filepath = os.path.join(get_default_cfgs_dirpath(),
+                                                 'model_configs',
+                                                 args.model + '_config.py')
+            assert os.path.exists(args.cfg_filepath), \
+                f"The model's config file doesn't exit: {args.cfg_filepath}"
         cfg_data['cfg_filepath'], cfg_data['log_filepath'] = get_cfg_filepaths(args)
         # Get config dict
         cfg_data['cfg_dict'] = load_cfg_dict(cfg_data['cfg_filepath'])
@@ -134,10 +142,12 @@ class ConfigBoilerplate:
         # Start logging
         # =============
         logger.info("Running {} v{}".format(pyutils.__name__, pyutils.__version__))
-        logger.info("Using the dataset: {}".format(self._package_name))
-        logger.debug("Package path: {}".format(self._package_path))
+        # logger.info("Using the dataset: {}".format(self._package_name))
         logger.info("Verbose option {}".format(
             "enabled" if self.cfg_dict['verbose'] else "disabled"))
+        logger.debug("Working directory: {}".format(self._package_path))
+        logger.debug(f"Config path: {self.cfg_filepath}")
+        logger.debug(f"Logging path: {self.log_filepath}")
 
 
 def get_cfg_filepaths(args):
@@ -157,13 +167,19 @@ def get_cfg_filepaths(args):
 
 
 def get_default_cfg_filepath():
-    from default_configs import __path__ as configs_path
-    return os.path.join(configs_path[0], 'config.py')
+    return os.path.join(get_default_cfgs_dirpath(), 'config.py')
+
+
+def get_default_cfgs_dirpath():
+    try:
+        from configs import __path__ as configs_path
+    except ImportError:
+        from pyutils.default_configs import __path__ as configs_path
+    return configs_path[0]
 
 
 def get_default_logging_filepath():
-    from default_configs import __path__ as configs_path
-    return os.path.join(configs_path[0], 'logging.py')
+    return os.path.join(get_default_cfgs_dirpath(), 'logging.py')
 
 
 # TODO: module_file must be the filename (not whole filepath)
