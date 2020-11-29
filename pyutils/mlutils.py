@@ -100,6 +100,7 @@ def get_model(model_type, model_params, scale_input=False):
         importlib.import_module(exp_module_name)
     model_class = getattr(module, model_name)
     logger.debug(f"Model imported: {model_class}")
+    # Can either be base_estimator or estimator (equivalent)
     base_estimator_cfg = model_params.get('base_estimator')
     if base_estimator_cfg is None:
         base_estimator_cfg = model_params.get('estimator')
