@@ -1,7 +1,7 @@
 ======
 README
 ======
-**pyutils** is a library of common Python utilities especially for data analysis and machine learning
+**pyutils** is a library of common Python utilities especially for data analysis and machine learning.
 
 The ``pyutils`` package contains utilities divided into different modules
 based on their main application. For example, the `dautils`_ module defines
