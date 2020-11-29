@@ -7,11 +7,11 @@ verbose = False
 # --------------
 # Data filepaths
 # --------------
-data_filepath = None
-train_filepath = '~/Data/kaggle_datasets/titanic/train.csv'
-valid_filepath = None
-test_filepath = '~/Data/kaggle_datasets/titanic/test.csv'
-y_target = 'Survived'
+data_filepath = ''
+train_filepath = ''
+valid_filepath = ''
+test_filepath = ''
+y_target = ''
 
 # ------------------
 # Data preprocessing
