@@ -12,6 +12,7 @@ from logging import NullHandler
 from runpy import run_path
 
 # import ipdb
+import pyutils
 
 
 def get_short_logger_name(name):
@@ -27,14 +28,14 @@ logger_data.addHandler(NullHandler())
 
 class ConfigBoilerplate:
 
+    # eg. module_file = 'train_model.py'
     def __init__(self, module_file):
+        # e.g. _module_file = 'train_model'
         self._module_file = os.path.basename(os.path.splitext(module_file)[0])
+        # e.g. _package_name = 'titanic'
         self._package_name = os.path.basename(os.getcwd())
-        self.package = importlib.import_module('datasets.' + self._package_name)
-        self._package_path = self.package.__path__[0]
-        self._package_version = self.package.__version__
-        self.module = importlib.import_module(
-            'datasets.{}.{}'.format(self._package_name, self._module_file))
+        self._package_path = os.getcwd()
+        self.module = importlib.import_module(self._module_file)
         self._module_logger = self.module.logger
         self._module_name = self.module.__name__
         # =============================================
@@ -74,7 +75,7 @@ class ConfigBoilerplate:
     def _parse_cmdl_args(self):
         cfg_data = {'cfg_filepath': None, 'log_filepath': None,
                     'cfg_dict': None, 'log_dict': None}
-        parser = setup_argparser(self._package_version)
+        parser = setup_argparser()
         args = parser.parse_args()
         if os.path.isdir(args.cfg_filepath) and not args.model:
             raise RuntimeError("Config directory provided but model (-m) "
@@ -132,7 +133,8 @@ class ConfigBoilerplate:
         # =============
         # Start logging
         # =============
-        logger.info("Running {} v{}".format(self._package_name, self._package_version))
+        logger.info("Running {} v{}".format(pyutils.__name__, pyutils.__version__))
+        logger.info("Using the dataset: {}".format(self._package_name))
         logger.debug("Package path: {}".format(self._package_path))
         logger.info("Verbose option {}".format(
             "enabled" if self.cfg_dict['verbose'] else "disabled"))
@@ -256,7 +258,7 @@ def set_logging_level(log_dict, level='DEBUG'):
             val['level'] = level
 
 
-def setup_argparser(package_version):
+def setup_argparser():
     """Setup the argument parser for the command-line script.
 
     TODO
@@ -282,7 +284,7 @@ TODO\n''',
     # ===============
     # TODO: package name too? instead of program name (e.g. train_model.py)
     parser.add_argument("--version", action='version',
-                        version='%(prog)s {}'.format(package_version))
+                        version='%(prog)s {}'.format(pyutils.__version__))
     parser.add_argument(
         "-c", "--cfg-filepath", dest="cfg_filepath", default=cfg_filepath,
         help='''Filepath to the main configuration file (.py) or the directory
