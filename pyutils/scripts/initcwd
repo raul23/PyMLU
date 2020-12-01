@@ -1,0 +1,117 @@
+#!/usr/bin/env python
+"""TODO
+"""
+import argparse
+import glob
+import os
+from shutil import copy, copytree, ignore_patterns, rmtree
+
+import pyutils
+from pyutils.default_configs import __path__ as configs_path
+from pyutils.default_scripts import __path__ as scripts_path
+from pyutils.mlutils import _SKLEARN_MODULES
+configs_path = configs_path[0]
+scripts_path = scripts_path[0]
+
+_CFG_FNAME = 'configs'
+_MODEL_FNAME = 'model_configs'
+
+
+def setup_argparser():
+    """Setup the argument parser for the command-line script.
+
+    TODO
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Argument parser.
+
+    """
+    # Setup the parser
+    parser = argparse.ArgumentParser(
+        # usage="%(prog)s [OPTIONS]",
+        # prog=os.path.basename(__file__),
+        description='''\
+Initialize the current working directory with the scripts (e.g. train_model.py) 
+and the configuration folder containing the model and logging configuration 
+files.\n''',
+        # formatter_class=argparse.RawDescriptionHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # TODO: package name too? instead of program name (e.g. train_model.py)
+    parser.add_argument("--version", action='version',
+                        version='%(prog)s {}'.format(pyutils.__version__))
+    parser.add_argument(
+        "-l", "--list-categories", dest="list_categories", action='store_true',
+        help='''Show a list of all the supported categories of ML models.
+        Under each category, a list of model names is also shown.''')
+    parser.add_argument(
+        "-o", "--overwrite", dest="overwrite", action='store_true',
+        help='''Overwrite existing files and folders generated from a previous
+        run of the script.''')
+    parser.add_argument(
+        "-c", "--categories", dest="categories", nargs="*",
+        help='''Categories of ML models for which configuration files will be 
+        generated. These correspond to sklearn packages of ML models, e.g. 
+        ensemble or linear_model. Use the -l argument to show a complete list
+        of the categories of ML models.''')
+    parser.add_argument(
+        "-m", "--models", dest="models", nargs="*",
+        help='''Names of ML models for which configuration files will be 
+        generated. These correspond to sklearn's classes of ML models, e.g. 
+        SVC or AdaBoostClassifier. Use the -l argument to show a complete 
+        list of the supported ML models.''')
+    return parser
+
+
+def main():
+    parser = setup_argparser()
+    args = parser.parse_args()
+    if args.list_categories:
+        print("***List of categories of ML models:***")
+        for module in _SKLEARN_MODULES:
+            import ipdb
+            ipdb.set_trace()
+            print(f"- Category: {module}")
+
+        return 0
+    if args.categories:
+        for cat in args.categories:
+            assert cat in _SKLEARN_MODULES, \
+                f"The category '{cat}' is invalid. Run the script with " \
+                "the option -l to get a complete list of valid categories " \
+                "of ML models"
+    # Copy the default configuration files and folders
+    print("***Copying the configuration files and folders***")
+    configs_dest = os.path.join(os.getcwd(), _CFG_FNAME)
+    if args.categories:
+        for cat in args.categories:
+            src = os.path.join(configs_path, _MODEL_FNAME, cat)
+            dest = os.path.join(configs_dest, _MODEL_FNAME, cat)
+            if os.path.exists(dest) and not args.overwrite:
+                print(f"File exists: '{dest}''")
+                print(f"Skipping it!\n")
+            else:
+                # TODO: copy2?
+                print(f"Copying '{os.path.basename(fp):15s}' to {dest}")
+                copy(fp, dest)
+    else:
+        pass
+    pass
+    # Copy the default scripts
+    print("\n***Copying the scripts***")
+    glob.glob(os.path.join(scripts_path, '*.py'))
+    for fp in glob.glob(os.path.join(scripts_path, '*.py')):
+        dest = os.path.join(os.getcwd(), os.path.basename(fp))
+        if os.path.exists(dest) and not args.overwrite:
+            print(f"File exists: '{dest}''")
+            print(f"Skipping it!\n")
+        else:
+            # TODO: copy2?
+            print(f"Copying '{os.path.basename(fp):15s}' to {dest}")
+            copy(fp, dest)
+    return 0
+
+
+if __name__ == '__main__':
+    main()
