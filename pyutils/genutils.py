@@ -2,10 +2,12 @@
 """
 import argparse
 import codecs
+import glob
 import importlib
 import json
 import logging.config
 import os
+from shutil import copy
 import sys
 from collections import OrderedDict
 from logging import NullHandler
@@ -36,7 +38,6 @@ class ConfigBoilerplate:
         self._package_name = os.path.basename(os.getcwd())
         self._package_path = os.getcwd()
         self.module = importlib.import_module(self._module_file)
-        self._module_logger = self.module.logger
         self._module_name = self.module.__name__
         # =============================================
         # Parse command-line arguments and setup config
@@ -56,9 +57,6 @@ class ConfigBoilerplate:
     def get_cfg_dict(self):
         return self.cfg_dict
 
-    def get_logger(self):
-        return self.module_logger
-
     def _log_overridden_cfgs(self):
         cfg_types_map = {'cfg': 'config dict', 'log': 'logging dict'}
         for cfg_type, cfgs in self._overridden_cfgs.items():
@@ -75,7 +73,7 @@ class ConfigBoilerplate:
     def _parse_cmdl_args(self):
         cfg_data = {'cfg_filepath': None, 'log_filepath': None,
                     'cfg_dict': None, 'log_dict': None}
-        parser = setup_argparser()
+        parser = self._setup_argparser()
         args = parser.parse_args()
         if os.path.isdir(args.cfg_filepath):
             assert args.model, \
@@ -83,20 +81,19 @@ class ConfigBoilerplate:
                 "name (-m argument) missing"
         if args.model:
             if os.path.isdir(args.cfg_filepath):
-                cfg_filepath = os.path.join(args.cfg_filepath, args.model + '_config.py')
-                if os.path.exists(cfg_filepath):
-                    args.cfg_filepath = cfg_filepath
-                else:
-                    args.cfg_filepath = os.path.join(args.cfg_filepath,
-                                                     'model_configs',
-                                                     args.model + '_config.py')
+                cfg_filepath = get_model_config_path(args.cfg_filepath,
+                                                     args.model)
             else:
                 # cfg_filepath not a directory
-                args.cfg_filepath = os.path.join(get_default_cfgs_dirpath(),
-                                                 'model_configs',
-                                                 args.model + '_config.py')
+                root = os.path.join(get_cfgs_dirpath(), 'model_configs')
+                cfg_filepath = get_model_config_path(root, args.model)
+            if cfg_filepath:
+                args.cfg_filepath = cfg_filepath
+            else:
+                args.cfg_filepath = ''
             assert os.path.exists(args.cfg_filepath), \
-                f"The model's config file doesn't exit: {args.cfg_filepath}"
+                f"The model's {args.model} config file doesn't exit: " \
+                f"{args.cfg_filepath}"
         cfg_data['cfg_filepath'], cfg_data['log_filepath'] = get_cfg_filepaths(args)
         # Get config dict
         cfg_data['cfg_dict'] = load_cfg_dict(cfg_data['cfg_filepath'])
@@ -131,15 +128,53 @@ class ConfigBoilerplate:
                     self._overridden_cfgs[cfg_type].append(log_msg)
                     v = new_cfg_dict[k]
 
+    @staticmethod
+    def _setup_argparser():
+        """Setup the argument parser for the command-line script.
+
+        TODO
+
+        Returns
+        -------
+        parser : argparse.ArgumentParser
+            Argument parser.
+
+        """
+        cfg_filepath = get_default_cfg_filepath()
+        log_filepath = get_default_logging_filepath()
+        # Setup the parser
+        parser = argparse.ArgumentParser(
+            # usage="%(prog)s [OPTIONS]",
+            # prog=os.path.basename(__file__),
+            description='''\
+    TODO\n''',
+            # formatter_class=argparse.RawDescriptionHelpFormatter)
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        # TODO: package name too? instead of program name (e.g. train_model.py)
+        parser.add_argument("--version", action='version',
+                            version='%(prog)s {}'.format(pyutils.__version__))
+        parser.add_argument(
+            "-c", "--cfg-filepath", dest="cfg_filepath", default=cfg_filepath,
+            help='''File path to the model configuration file (.py) or the directory
+            path containing the various model configuration files.''')
+        parser.add_argument(
+            "-l", "--log-filepath", dest="log_filepath", default=log_filepath,
+            help='''File path to the logging configuration file (.py)''')
+        parser.add_argument(
+            "-m", "--model", dest="model",
+            help='''The name of the model to use (e.g. LogisticRegression, 
+            Perceptron, SVC)''')
+        return parser
+
     def _setup_log_from_cfg(self):
-        self.module_logger = logging.getLogger(
+        module_logger = logging.getLogger(
             get_logger_name(self._package_name,
                             self._module_name,
                             self._module_file))
         # NOTE: if quiet and verbose are both activated, only quiet will have an effect
         if self.cfg_dict['quiet']:
             # TODO: disable logging completely? even error messages?
-            self.module_logger.disabled = True
+            module_logger.disabled = True
         else:
             # Load logging config dict
             if self.cfg_dict['verbose']:
@@ -155,6 +190,20 @@ class ConfigBoilerplate:
         logger.debug("Working directory: {}".format(self._package_path))
         logger.debug(f"Config path: {self.cfg_filepath}")
         logger.debug(f"Logging path: {self.log_filepath}")
+
+
+def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*', overwrite=False):
+    for fp in glob.glob(os.path.join(src_dirpath, file_pattern)):
+        fname = os.path.basename(fp)
+        dest = os.path.join(dest_dirpath, fname)
+        if os.path.exists(dest) and not overwrite:
+            print(f"{'File ' + fname + ' exists':{width[0]}s}: {dest}")
+            print(f"Skipping it!")
+            continue
+        else:
+            # TODO: copy2?
+            print(f"Copying {os.path.basename(fp):{width[1]}s} to {dest}")
+            copy(fp, dest)
 
 
 def get_cfg_filepaths(args):
@@ -174,19 +223,20 @@ def get_cfg_filepaths(args):
 
 
 def get_default_cfg_filepath():
-    return os.path.join(get_default_cfgs_dirpath(), 'config.py')
+    return os.path.join(get_cfgs_dirpath(), 'config.py')
 
 
-def get_default_cfgs_dirpath():
+def get_cfgs_dirpath():
     try:
         from configs import __path__ as configs_path
     except ImportError:
+        # TODO: add logging message
         from pyutils.default_configs import __path__ as configs_path
     return configs_path[0]
 
 
 def get_default_logging_filepath():
-    return os.path.join(get_default_cfgs_dirpath(), 'logging.py')
+    return os.path.join(get_cfgs_dirpath(), 'logging.py')
 
 
 # TODO: module_file must be the filename (not whole filepath)
@@ -200,6 +250,16 @@ def get_logger_name(package_name, module_name, module_file):
     else:
         logger_name = module_name
     return logger_name
+
+
+def get_model_config_path(root, model_name):
+    filepath = None
+    for path, subdirs, files in os.walk(root):
+        for name in files:
+            if model_name.lower() in name.lower():
+                found = True
+                filepath = os.path.join(path, name)
+    return filepath
 
 
 def get_settings(conf, is_logging=False):
@@ -274,48 +334,18 @@ def load_json(filepath, encoding='utf8'):
         return data
 
 
+def mkdir(path, widths=(1, 1)):
+    dirname = os.path.basename(path)
+    if os.path.exists(path):
+        print(f"'{dirname}' folder {'exists':{widths[0]}s}: {path}")
+        # print(f"Skipping it!")
+    else:
+        print(f"Creating the '{dirname}' {'folder':{widths[1]}s}: {path}")
+        os.mkdir(path)
+
+
 def set_logging_level(log_dict, level='DEBUG'):
     keys = ['handlers', 'loggers']
     for k in keys:
         for name, val in log_dict[k].items():
             val['level'] = level
-
-
-def setup_argparser():
-    """Setup the argument parser for the command-line script.
-
-    TODO
-
-    Returns
-    -------
-    parser : argparse.ArgumentParser
-        Argument parser.
-
-    """
-    cfg_filepath = get_default_cfg_filepath()
-    log_filepath = get_default_logging_filepath()
-    # Setup the parser
-    parser = argparse.ArgumentParser(
-        # usage="%(prog)s [OPTIONS]",
-        # prog=os.path.basename(__file__),
-        description='''\
-TODO\n''',
-        # formatter_class=argparse.RawDescriptionHelpFormatter)
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    # ===============
-    # General options
-    # ===============
-    # TODO: package name too? instead of program name (e.g. train_model.py)
-    parser.add_argument("--version", action='version',
-                        version='%(prog)s {}'.format(pyutils.__version__))
-    parser.add_argument(
-        "-c", "--cfg-filepath", dest="cfg_filepath", default=cfg_filepath,
-        help='''Filepath to the main configuration file (.py) or the directory
-        containing the model configuration files (.py).''')
-    parser.add_argument(
-        "-l", "--log-filepath", dest="log_filepath", default=log_filepath,
-        help='''Filepath to the logging configuration file (.py)''')
-    parser.add_argument(
-        "-m", "--model", dest="model",
-        help='''Model type to use (e.g. linear_svc, log_reg, perceptron)''')
-    return parser
