@@ -1,12 +1,13 @@
 """Data analysis utilities
 """
+import copy
 import logging.config
 from logging import NullHandler
 
-# import ipdb
 import pandas as pd
 
 from pyutils import genutils as ge
+from pyutils.mlutils import Dataset
 
 logger = logging.getLogger(ge.get_short_logger_name(__name__))
 logger.addHandler(NullHandler())
@@ -16,85 +17,96 @@ logger_data.addHandler(NullHandler())
 
 
 class DataExplorer:
-    def __init__(self, data_filepath=None, train_filepath=None,
-                 valid_filepath=None, test_filepath=None, data_stats=True,
+    def __init__(self, builtin_dataset=None, custom_dataset=None,
+                 use_custom_data=False,
                  train_stats=True, valid_stats=True, test_stats=True,
                  excluded_cols=None, data_head=5, train_head=5,
                  valid_head=5, test_head=5, data_isnull=True,
                  train_isnull=True, valid_isnull=True, test_isnull=True,
                  *args, **kwargs):
-        self.data_filepath = data_filepath
-        self.train_filepath = train_filepath
-        self.valid_filepath = valid_filepath
-        self.test_filepath = test_filepath
-        self.data_stats = data_stats
         self.train_stats = train_stats
         self.valid_stats = valid_stats
         self.test_stats = test_stats
         self.excluded_cols = excluded_cols
-        self.data_head = data_head
         self.train_head = train_head
         self.valid_head = valid_head
         self.test_head = test_head
-        self.data_isnull = data_isnull
         self.train_isnull = train_isnull
         self.valid_isnull = valid_isnull
         self.test_isnull = test_isnull
         # ---------
         # Load data
         # ---------
-        logger.info("Loading data")
-        self.datasets = self._load_data()
+        self.dataset = Dataset(builtin_dataset, custom_dataset, use_custom_data)
 
     def compute_stats(self):
-        for data_type, data in self.datasets.items():
-            if data is not None \
-                    and self.__getattribute__('{}_stats'.format(data_type)):
-                compute_stats(data, data_type,
+        for data_type in self.dataset._data_types:
+            X_data, y_data = self.dataset.get_data(data_type)
+            if X_data is not None and y_data is not None:
+                # TODO: explain why we do concat()
+                concat_data = pd.concat([X_data, y_data], axis=1)
+                compute_stats(concat_data, data_type,
                               excluded_cols=self.excluded_cols)
+            else:
+                # TODO: debug log (couldn't compute stats because missing data)
+                pass
 
     def count_null(self):
-        for data_type, data in self.datasets.items():
-            if data is not None \
+        for data_type in self.dataset._data_types:
+            X_data, y_data = self.dataset.get_data(data_type)
+            if X_data is not None and y_data is not None \
                     and self.__getattribute__('{}_isnull'.format(data_type)):
+                concat_data = pd.concat([X_data, y_data], axis=1)
                 logger_data.info(
-                    "*** Number of missing values for each feature in {} "
+                    "*** Number of missing values for each column in {} "
                     "***\n{}\n".format(
                         data_type,
-                        data.isnull().sum()))
+                        concat_data.isnull().sum()))
+            else:
+                # TODO: debug log (couldn't compute states because missing data)
+                pass
 
     def head(self):
-        for data_type, data in self.datasets.items():
+        for data_type in self.dataset._data_types:
             n_rows = self.__getattribute__('{}_head'.format(data_type))
-            if data is not None and n_rows:
+            X_data, y_data = self.dataset.get_data(data_type)
+            if X_data is not None and y_data is not None:
+                concat_data = pd.concat([X_data, y_data], axis=1)
                 logger_data.info("*** First {} rows of {} ***\n{}\n".format(
                     n_rows,
                     data_type,
-                    data.head(n_rows)))
-
-    def _load_data(self):
-        datasets = {
-            'data': None,
-            'train': None,
-            'valid': None,
-            'test': None
-        }
-        for data_type in datasets.keys():
-            filepath = self.__getattribute__('{}_filepath'.format(data_type))
-            if filepath:
-                datasets[data_type] = pd.read_csv(filepath)
+                    concat_data.head(n_rows)))
             else:
-                # TODO: logging (no filepath for dataset)
+                # TODO: debug log (couldn't compute states because missing data)
                 pass
-        return datasets
 
 
 def remove_columns(data, excluded_cols):
-    cols = set(data.columns)
-    valid_cols = cols - set(excluded_cols)
-    if excluded_cols:
-        logger_data.info(f"Excluded columns: {cols.intersection(excluded_cols)}")
-    return data[valid_cols]
+    if isinstance(excluded_cols[0], str):
+        all_cols = data.columns
+        valid_cols = all_cols.to_list()
+        invalid_cols = []
+        excluded_cols_copy = copy.copy(excluded_cols)
+        for col in excluded_cols:
+            if col in all_cols:
+                valid_cols.remove(col)
+            else:
+                invalid_cols.append(col)
+                excluded_cols_copy.remove(col)
+        if excluded_cols_copy:
+            logger_data.info(f"Excluded columns: {excluded_cols_copy}")
+        if invalid_cols:
+            logger_data.info(f"Invalid excluded columns: {invalid_cols}")
+        data = data[valid_cols]
+    else:
+        col_indices = [i for i in range(0, data.shape[1])]
+        valid_col_indices = set(col_indices) - set(excluded_cols)
+        excluded_cols_copy = list(set(col_indices) - valid_col_indices)
+        if excluded_cols_copy:
+            excluded_cols = data.columns[list(excluded_cols_copy)].to_list()
+            logger_data.info(f"Excluded columns: {excluded_cols}")
+        data = data.iloc[:, list(valid_col_indices)]
+    return data
 
 
 def remove_strings_from_cols(data):
@@ -105,11 +117,12 @@ def remove_strings_from_cols(data):
             strings_cols.append(col)
         else:
             num_cols.append(col)
-    if num_cols:
-        logger_data.info(f"Rejected strings columns: {strings_cols}")
+    if strings_cols:
+        logger_data.info(f"Rejected string columns: {strings_cols}")
+        # If only string columns, empty dataset returned
         return data[num_cols]
     else:
-        logger_data.info("No strings columns found in the data")
+        logger_data.info("No string columns found in the data")
         return data
 
 
@@ -125,5 +138,9 @@ def compute_stats(data, name='data', include_strings=False,
     if not include_strings:
         data = remove_strings_from_cols(data)
     logger_data.info("")
-    logger_data.info(data.describe())
+    if len(data.columns):
+        logger_data.info(data.describe())
+    else:
+        logger.warning("All the data columns were removed! Skipping computing "
+                       f"stats for {name}.")
     logger_data.info("")
