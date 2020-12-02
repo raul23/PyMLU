@@ -4,11 +4,13 @@ import importlib
 import logging.config
 from logging import NullHandler
 
-# import ipdb
-# import pandas as pd
+import numpy as np
+
+from sklearn import datasets
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
+from pyutils import SKLEARN_MODULES
 from pyutils import genutils as ge
 
 pandas = None
@@ -16,29 +18,36 @@ pandas = None
 logger = logging.getLogger(ge.get_short_logger_name(__name__))
 logger.addHandler(NullHandler())
 
-_SKLEARN_MODULES = ['sklearn.dummy', 'sklearn.gaussian_process',
-                    'sklearn.linear_model', 'sklearn.naive_bayes',
-                    'sklearn.neighbors', 'sklearn.neural_network'
-                    'sklearn.semi_supervised', 'sklearn.semi_supervised',
-                    'sklearn.svm', 'sklearn.tree', 'sklearn.calibration',
-                    'sklearn.ensemble', 'sklearn.multiclass',
-                    'sklearn.multioutput']
-
 
 class Datasets:
 
-    def __init__(self, train_filepath, test_filepath, y_target,
-                 features=None, get_dummies=False, *args, **kwargs):
-        # ------------------
-        # Parameters parsing
-        # ------------------
+    def __init__(self, builtin_dataset=None, custom_dataset=None,
+                 use_custom_data=False, features=None, get_dummies=False,
+                 random_seed=0, *args, **kwargs):
         global pandas
         logger.info("Importing pandas...")
         import pandas
-        self.train_filepath = train_filepath
-        self.test_filepath = test_filepath
-        self.y_target = y_target
-        logger.debug(f"y_target = {self.y_target}")
+        # ------------------
+        # Parameters parsing
+        # ------------------
+        assert builtin_dataset or custom_dataset, \
+            "No dataset specified. You need to specify a builtin or custom " \
+            "dataset."
+        self.random_seed = random_seed
+        if use_custom_data:
+            assert custom_dataset, \
+                "use_custom_data=True but no custom dataset specified"
+            self.custom_dataset = custom_dataset
+            self.builtin_dataset = None
+            assert custom_dataset['train_filepath'], \
+                "Train filepath is missing"
+            assert custom_dataset['test_filepath'], \
+                "Test filepath is missing"
+            logger.debug(f"y_target = {self.custom_dataset['y_target']}")
+        else:
+            assert builtin_dataset, "No builtin custom dataset specified"
+            self.builtin_dataset = builtin_dataset
+            self.custom_dataset = None
         if features:
             logger.debug(f"Using only these features: {features}")
             self.features = features
@@ -49,38 +58,125 @@ class Datasets:
         # ------------
         # Data loading
         # ------------
-        # Load train data
-        logger.debug(f"Train filepath: {train_filepath}")
-        logger.info("Loading training data...")
-        self.train_data = pandas.read_csv(train_filepath)
-        if not self.features:
-            self.features = self.train_data.columns.to_list()
-            logger.debug(f"Using all {len(self.features)} features")
-        # Remove target from features
-        if self.y_target in self.features:
-            logger.warning(f"Removing the y_target ({self.y_target}) from the "
-                           f"features")
-            self.features.remove(self.y_target)
-        self.y = self.train_data[y_target]
-        # Load test data
-        logger.debug(f"Test filepath: {test_filepath}")
-        logger.info("Loading test data...")
-        self.test_data = pandas.read_csv(test_filepath)
+        # Init data variables
+        self.X_train = None
+        self.y_train = None
+        self.X_test = None
+        self.y_test = None
+        if use_custom_data:
+            self._process_custom_dataset()
+        else:
+            self._process_builtin_dataset()
         # ------------------
         # Data preprocessing
         # ------------------
-        # Select only the required features
-        self.X = self.train_data[self.features]
-        self.X_test = self.test_data[self.features]
+        # One-hot encode the data
         if self.get_dummies:
             self._get_dummies()
+
+    @staticmethod
+    def shuffle_dataset(X, y, random_seed=1):
+        n_sample = len(X)
+        np.random.seed(random_seed)
+        order = np.random.permutation(n_sample)
+        X = X.loc[order]
+        y = y.loc[order]
+        return X, y
+
+    @staticmethod
+    def select_features(features, data):
+        if features:
+            if isinstance(features[0], str):
+                data = data[features]
+            else:
+                data = data.iloc[:, features]
+        return data
+
+    @staticmethod
+    def split_data(X, y, data_prop=(0.9, 0.1)):
+        assert sum(data_prop) == 1, \
+            f"The sum of the data proportions is not 1.0: {data_prop}"
+        n_sample = len(X)
+        X_train = X[:int(data_prop[0] * n_sample)]
+        y_train = y[:int(data_prop[0] * n_sample)]
+        X_test = X[int(data_prop[0] * n_sample):]
+        y_test = y[int(data_prop[0] * n_sample):]
+        return X_train, y_train, X_test, y_test
 
     # One-hot encode the data
     def _get_dummies(self):
         # Replace missing values on train and test
         logger.info("One-hot encoding the data")
-        self.X = pandas.get_dummies(self.X)
+        self.X_train = pandas.get_dummies(self.X_train)
         self.X_test = pandas.get_dummies(self.X_test)
+
+    def _process_builtin_dataset(self):
+        # ------------
+        # Load dataset
+        # ------------
+        # Load train data
+        logger.info(f"Loading dataset {self.builtin_dataset['name']}...")
+        if self.builtin_dataset['name'] == 'iris':
+            iris = datasets.load_iris()
+            self.builtin_dataset.update(iris)
+            X = pandas.DataFrame(self.builtin_dataset.pop('data'))
+            X.columns = self.builtin_dataset['feature_names']
+            y = pandas.Series(self.builtin_dataset.pop('target'))
+            y.columns = ['iris_species']
+        else:
+            raise ValueError("Dataset not supported: "
+                             f"{self.builtin_dataset['name']}")
+        # ------------------
+        # Features selection
+        # ------------------
+        # Select only the required features
+        if self.features:
+            logger.debug(f"Using {len(self.features)} features")
+            X = self.select_features(self.features, X)
+        # --------------
+        # Randomize data
+        # --------------
+        if self.builtin_dataset['shuffle_data']:
+            logger.debug("Shuffling dataset")
+            X, y = self.shuffle_dataset(X, y, self.random_seed)
+        # -----------
+        # Data splits
+        # -----------
+        self.X_train, self.y_train, self.X_test, self.y_test = self.split_data(
+            X, y, self.builtin_dataset['data_prop'])
+
+    def _process_custom_dataset(self):
+        # ------------
+        # Load dataset
+        # ------------
+        # Load train data
+        logger.info("Loading training data...")
+        logger.debug(f"Train filepath: {self.custom_dataset['train_filepath']}")
+        train_data = pandas.read_csv(self.custom_dataset['train_filepath'])
+        if not self.features:
+            self.features = train_data.columns.to_list()
+        # Remove target from features
+        if self.custom_dataset['y_target'] in self.features:
+            logger.warning("Removing the y_target "
+                           f"({self.custom_dataset['y_target']}) from the features")
+            self.features.remove(self.custom_dataset['y_target'])
+        X = train_data
+        self.y_train = train_data[self.custom_dataset['y_target']]
+        # Load test data
+        logger.info("Loading test data...")
+        logger.debug(f"Test filepath: {self.custom_dataset['test_filepath']}")
+        X_test = pandas.read_csv(self.custom_dataset['test_filepath'])
+        # ------------------
+        # Features selection
+        # ------------------
+        # Select only the required features
+        logger.debug(f"Using {len(self.features)} features")
+        if self.features:
+            self.X_train = self.select_features(self.features, X)
+            self.X_test = self.select_features(self.features, X_test)
+        else:
+            self.X_train = X
+            self.X_test = X_test
 
 
 def get_model(model_type, model_params, scale_input=False):
@@ -90,8 +186,9 @@ def get_model(model_type, model_params, scale_input=False):
         "There should be three components to the model type. Only " \
         f"{len(model_type)} provided: {model_type}"
     sklearn_module = '.'.join(model_type_split[:2])
-    model_name = model_type_split[-1]
-    if sklearn_module in _SKLEARN_MODULES:
+    module_name = model_type_split[1]
+    model_name = model_type_split[2]
+    if module_name in SKLEARN_MODULES:
         logger.info(f"Importing {model_type}...")
         module = importlib.import_module(sklearn_module)
     else:
