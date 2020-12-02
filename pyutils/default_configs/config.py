@@ -11,7 +11,7 @@ random_seed = 1
 builtin_dataset = {
     'name': 'iris',
     # (train_proportion, test_proportion)
-    'data_prop': (0.9, 0.1),
+    'data_prop': (0.7, 0.3),
     'shuffle_data': True
 }
 
@@ -41,16 +41,17 @@ get_dummies = True
 # -------------
 # Compute stats
 # -------------
-data_stats= True
 train_stats= True
 valid_stats= True
 test_stats= True
-excluded_cols= ['PassengerId']
+# Excluded columns can be names of features (column names) or indices (column positions)
+# e.g. excluded_cols = ['PassengerId']
+#      excluded_cols = [4]
+excluded_cols= None
 
 # ------------------
 # HEAD: first N rows
 # ------------------
-data_head = 5
 train_head = 5
 valid_head = 5
 test_head = 5
@@ -58,7 +59,6 @@ test_head = 5
 # ------------------------------
 # Count number of missing values
 # ------------------------------
-data_isnull = True
 train_isnull = True
 valid_isnull = True
 test_isnull = True
