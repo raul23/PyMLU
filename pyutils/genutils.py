@@ -240,7 +240,9 @@ def get_default_logging_filepath():
 
 
 # TODO: module_file must be the filename (not whole filepath)
-def get_logger_name(package_name, module_name, module_file):
+def get_logger_name(module_name, module_file, package_name=None):
+    if package_name is None:
+        package_name = os.path.basename(os.getcwd())
     if module_name == '__main__' or not module_name.count('.'):
         logger_name = "{}.{}".format(
             package_name,
