@@ -3,20 +3,36 @@
 # ---------------
 quiet = False
 verbose = False
+random_seed = 1
+
+# ----------------
+# Built-in dataset
+# ----------------
+builtin_dataset = {
+    'name': 'iris',
+    # (train_proportion, test_proportion)
+    'data_prop': (0.9, 0.1),
+    'shuffle_data': True
+}
 
 # --------------
-# Data filepaths
+# Custom dataset
 # --------------
-data_filepath = ''
-train_filepath = ''
-valid_filepath = ''
-test_filepath = ''
-y_target = ''
+# TODO: data_filepath and valid_filepath
+custom_dataset = {
+    'train_filepath': None,
+    'test_filepath': None,
+    'y_target': None
+}
+use_custom_data = False
 
 # ------------------
 # Data preprocessing
 # ------------------
-features = ["Pclass", "Sex", "SibSp", "Parch"]
+# Features can be names of features (column names) or indices (column positions)
+# e.g. features = ['featureA', 'featureB']
+#      features = [i for i in range(0, 10)]
+features = None
 # One-hot encode the data using pandas get_dummies()
 get_dummies = True
 # TODO: implement this option, scale input for all models
@@ -55,6 +71,6 @@ model = {
     'model_params': {
         'n_estimators': 100,
         'max_depth': 5,
-        'random_state': 1
+        'random_state': random_seed
     }
 }
