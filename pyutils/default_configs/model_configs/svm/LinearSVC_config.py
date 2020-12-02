@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -9,7 +10,7 @@ model = {
         'loss': 'squared_hinge',  # hinge
         'tol': 1e-4,
         'C': 1,  # C > 0
-        'random_state': 1
+        'random_state': config.random_seed
     },
     'scale_input': True
 }

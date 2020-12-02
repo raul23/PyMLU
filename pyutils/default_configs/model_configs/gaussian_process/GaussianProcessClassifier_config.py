@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -8,6 +9,6 @@ model = {
     'model_params': {
         # If None is passed, the kernel “1.0 * RBF(1.0)” is used as default
         'kernel': None,
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }

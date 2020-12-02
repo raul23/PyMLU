@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -7,6 +8,6 @@ model = {
     'model_type': 'sklearn.ensemble.GradientBoostingClassifier',
     'model_params': {
         'n_estimators': 100,
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }

@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -13,7 +14,7 @@ model = {
         'degree': 3,  # if kernel == 'poly'
         'gamma': 'scale',  # if kernel in ['poly', 'rbf', 'sigmoid']
         'tol': 1e-3,
-        'random_state': 1
+        'random_state': config.random_seed
     },
     'scale_input': True
 }

@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -16,6 +17,6 @@ model = {
     'model_params': {
         'base_estimator': base_model,
         'n_estimators': 50,
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }

@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -7,7 +8,7 @@ estimator = {
     'model_type': 'sklearn.tree.DecisionTreeClassifier',
     'model_params': {
         'max_depth': 5,
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }
 

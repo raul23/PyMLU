@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -9,7 +10,7 @@ model = {
     'model_params': {
         # stratified, most_frequent, prior, uniform, constant
         'strategy': 'constant',
-        'random_state': 1,
+        'random_state': config.random_seed,
         # Sseful only for the “constant” strategy.
         'constant': 0
     }

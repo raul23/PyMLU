@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -6,7 +7,7 @@ estimator_01 = {
     'model_params': {
         'n_estimators': 100,
         'max_depth': 5,
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }
 
@@ -16,7 +17,7 @@ estimator_02 = {
         'loss': 'squared_hinge',
         'tol': 1e-4,
         'C': 1,
-        'random_state': 1,
+        'random_state': config.random_seed,
         'max_iter': 2000
     },
     'scale_input': True
@@ -25,7 +26,7 @@ estimator_02 = {
 final_estimator = {
     'model_type': 'sklearn.linear_model.LogisticRegression',
     'model_params': {
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }
 

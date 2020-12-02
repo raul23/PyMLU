@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -6,7 +7,7 @@
 model = {
     'model_type': 'sklearn.linear_model.Perceptron',
     'model_params': {
-        'random_state': 1
+        'random_state': config.random_seed
     },
     'scale_input': True
 }

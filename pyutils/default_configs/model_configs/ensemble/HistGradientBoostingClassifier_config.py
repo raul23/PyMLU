@@ -1,3 +1,4 @@
+from configs import config
 # --------
 # ML model
 # --------
@@ -13,6 +14,6 @@ model = {
     'model_type': 'sklearn.ensemble.HistGradientBoostingClassifier',
     'model_params': {
         'learning_rate': 0.1,  # 1 for no shrinkage
-        'random_state': 1
+        'random_state': config.random_seed
     }
 }
