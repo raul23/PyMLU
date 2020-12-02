@@ -19,18 +19,25 @@ from logging import NullHandler
 from pyutils import dautils as da
 from pyutils import genutils as ge
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger(ge.get_logger_name(__name__, __file__))
 logger.addHandler(NullHandler())
 
 
 def main():
-    global logger
+    # ---------------------------------
+    # Setup logging and get config dict
+    # ---------------------------------
     bp = ge.ConfigBoilerplate(__file__)
-    logger = bp.get_logger()
 
+    # ------------------------------------
+    # Data exploration: compute stats, ...
+    # ------------------------------------
     data = da.DataExplorer(**bp.get_cfg_dict())
+    # For each column in the data (from train, test), list number of missing values
     data.count_null()
+    # Compute stats (describe()) on each data (train, test)
     data.compute_stats()
+    # Print first N rows from each data (train, test)
     data.head()
 
 
