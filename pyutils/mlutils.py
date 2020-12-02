@@ -19,7 +19,7 @@ logger = logging.getLogger(ge.get_short_logger_name(__name__))
 logger.addHandler(NullHandler())
 
 
-class Datasets:
+class Dataset:
 
     def __init__(self, builtin_dataset=None, custom_dataset=None,
                  use_custom_data=False, features=None, get_dummies=False,
@@ -63,16 +63,37 @@ class Datasets:
         self.y_train = None
         self.X_test = None
         self.y_test = None
+        self._data_types = ['train', 'valid', 'test']
         if use_custom_data:
             self._process_custom_dataset()
         else:
             self._process_builtin_dataset()
+        self._print_data_info()
         # ------------------
         # Data preprocessing
         # ------------------
         # One-hot encode the data
         if self.get_dummies:
             self._get_dummies()
+
+    def _print_data_info(self):
+        for data_type in self._data_types:
+            X_data, y_data = self.get_data(data_type)
+            if X_data is not None and y_data is not None:
+                logger.info(f"X_{data_type} shape: {X_data.shape}")
+                logger.info(f"y_{data_type} shape: {y_data.shape}")
+            else:
+                # TODO: debug log
+                pass
+
+    def get_data(self, data_type):
+        try:
+            X_data = getattr(self, 'X_' + data_type)
+            y_data = getattr(self, 'y_' + data_type)
+        except AttributeError:
+            X_data = None
+            y_data = None
+        return X_data, y_data
 
     @staticmethod
     def shuffle_dataset(X, y, random_seed=1):
@@ -122,7 +143,8 @@ class Datasets:
             X = pandas.DataFrame(self.builtin_dataset.pop('data'))
             X.columns = self.builtin_dataset['feature_names']
             y = pandas.Series(self.builtin_dataset.pop('target'))
-            y.columns = ['iris_species']
+            # y.columns = ['iris_species']
+            y.name = 'iris_species'
         else:
             raise ValueError("Dataset not supported: "
                              f"{self.builtin_dataset['name']}")
