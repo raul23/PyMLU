@@ -4,39 +4,49 @@
 import argparse
 import glob
 import os
+from pathlib import Path
+from shutil import copy
 
 import pyutils
-from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_ENDING,
+from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
                      SKLEARN_MODULES)
-from pyutils.default_configs import __path__ as default_configs_path
-from pyutils.default_scripts import __path__ as default_scripts_path
-from pyutils.genutils import mkdir, copy_files
-default_configs_path = default_configs_path[0]
-default_scripts_path = default_scripts_path[0]
+from pyutils.default_configs import __path__ as default_configs_dirpath
+from pyutils.default_scripts import __path__ as default_scripts_dirpath
+from pyutils.genutils import copy_files, get_model_config_filepaths, mkdir
+default_configs_dirpath = default_configs_dirpath[0]
+default_scripts_dirpath = default_scripts_dirpath[0]
 
 
-def copy_model_configs(categories, overwrite=False):
-    # Path to the configs directory in the current working directory
-    configs_path = os.path.join(os.getcwd(), CONFIGS_DIRNAME)
+def copy_model_configs(categories, model_type=None, model_names=None, overwrite=False):
+    if model_type:
+        assert model_type in ['clf', 'reg'], f"Invalid model type: {model_type}"
+        model_type = 'classifiers' if model_type == 'clf' else 'regressors'
+    if model_names is None:
+        model_names = []
     # Path to the model_configs directory in the current working directory
-    model_configs_path = os.path.join(configs_path, MODEL_CONFIGS_DIRNAME)
-    for i, cat in enumerate(categories):
-        if i != 0:
-            print()
-        # Validate the model category provided by the user
-        if cat not in SKLEARN_MODULES:
-            print(f"The category '{cat}' is invalid")
-            print(f"Skipping it!\n")
+    model_configs_dirpath = os.path.join(os.getcwd(), CONFIGS_DIRNAME,
+                                         MODEL_CONFIGS_DIRNAME)
+    # Path to the default model_configs directory
+    default_model_configs_dirpath = os.path.join(default_configs_dirpath,
+                                                 MODEL_CONFIGS_DIRNAME)
+    model_config_filepaths = get_model_config_filepaths(
+        default_model_configs_dirpath, categories, model_type, model_names, '.py')
+    for model_filepath in model_config_filepaths:
+        fname = os.path.basename(model_filepath)
+        model_type_dirpath = os.path.dirname(model_filepath)
+        model_type_dirname = os.path.basename(model_type_dirpath)
+        model_category_dirname = os.path.basename(os.path.dirname(model_type_dirpath))
+        dest_dirpath = os.path.join(model_configs_dirpath, model_category_dirname,
+                                    model_type_dirname)
+        dest = os.path.join(dest_dirpath, fname)
+        if os.path.exists(dest) and not overwrite:
+            print(f"{'File ' + fname + ' exists':10s}: {model_filepath}")
+            print(f"Skipping it!")
             continue
-        # Path to the default category (e.g. ensemble) directory
-        default_cat_path = os.path.join(default_configs_path, MODEL_CONFIGS_DIRNAME, cat)
-        # Path to the category directory in the current working directory
-        cat_path = os.path.join(model_configs_path, cat)
-        print(f"Category: {cat} @ {cat_path}")
-        # Create the category folder (empty) if it doesn't exist
-        mkdir(cat_path)
-        # Copy the model configuration files (.py) for the given category
-        copy_files(default_cat_path, cat_path, (1, 37), '*.py', overwrite)
+        else:
+            print(f"Copying {fname:10s} to {dest}")
+            Path(dest_dirpath).mkdir(parents=True, exist_ok=True)
+            copy(model_filepath, dest)
 
 
 def setup_argparser():
@@ -66,7 +76,7 @@ files.\n''',
     parser.add_argument(
         "-l", "--list-categories", dest="list_categories", action='store_true',
         help='''Show a list of all the supported ML model categories along with
-        associated model names. Then the program exits.''')
+        the associated model names. Then the program exits.''')
     parser.add_argument(
         "-o", "--overwrite", dest="overwrite", action='store_true',
         help='''Overwrite existing files and folders generated from a previous
@@ -83,6 +93,11 @@ files.\n''',
         generated. These correspond to sklearn's classes of ML models, e.g. 
         SVC or AdaBoostClassifier. Use the -l argument to show a complete 
         list of the supported ML models.''')
+    parser.add_argument(
+        "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
+        default=None,
+        help='''The type of model for which configuration files will be 
+        generated where `clf` is for classifier and `reg` is for regressor.''')
     return parser
 
 
@@ -93,20 +108,26 @@ def main():
     # -l : list model categories and their associated ML models
     # ---------------------------------------------------------
     if args.list_categories:
-        print("***List of model categories and the associated ML models:***")
+        print("***List of model categories [C] and the associated ML models [M]***")
         for i, module in enumerate(SKLEARN_MODULES, start=1):
             spaces = '  ' if i < 10 else ' '
             # e.g. (1)  ensemble
-            print(f"({i}){spaces}{module}:")
+            print(f"({i}){spaces}{module} [C]:")
             # Path to the sklearn module directory
-            module_path = os.path.join(default_configs_path, MODEL_CONFIGS_DIRNAME, module)
+            module_dirpath = os.path.join(default_configs_dirpath,
+                                          MODEL_CONFIGS_DIRNAME, module)
             # For each sklearn module, print its associated model names
             # Get all python files (model config files) under the sklearn module directory
-            for fp in glob.glob(os.path.join(module_path, '*.py')):
-                # Retrieve the model name from the python config filename
-                # e.g. DummyClassifier.py -> DummyClassifier
-                model_name = os.path.basename(fp).split(MODEL_FNAME_ENDING)[0]
-                print(f"\t- {model_name}")
+            for path, subdirs, files in os.walk(module_dirpath):
+                if files:
+                    model_type = os.path.basename(path)
+                    print(f"\t* {model_type}")
+                for fname in files:
+                    # Retrieve the model name from the python config filename
+                    # e.g. DummyClassifier_config.py -> DummyClassifier
+                    model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
+                    print(f"\t    - {model_name} [M]")
+        print("\n\nLegend:\n[C]: model category\n[M]: model name")
         return 0
 
     # ------------------------------------------------
@@ -114,30 +135,32 @@ def main():
     # ------------------------------------------------
     print("***Copying the configuration folders and files***")
     # Path to the configs directory in the current working directory
-    configs_path = os.path.join(os.getcwd(), CONFIGS_DIRNAME)
+    configs_dirpath = os.path.join(os.getcwd(), CONFIGS_DIRNAME)
     # Create the configs folder (empty) if it doesn't exist
-    mkdir(configs_path, (12, 12))
+    mkdir(configs_dirpath, (12, 12))
     # Path to the model_configs directory in the current working directory
-    model_configs_path = os.path.join(configs_path, MODEL_CONFIGS_DIRNAME)
+    model_configs_dirpath = os.path.join(configs_dirpath, MODEL_CONFIGS_DIRNAME)
     # Create the model_configs folder (empty) if it doesn't exist
-    mkdir(model_configs_path)
+    mkdir(model_configs_dirpath)
     print()
     # Copy configuration and logging files (.py): config.py and logging.py
-    copy_files(default_configs_path, configs_path, (23, 11), '*.py', args.overwrite)
+    copy_files(default_configs_dirpath, configs_dirpath, (23, 11), '*.py',
+               args.overwrite)
     print()
-    # -------------------------------------------------------------
-    # -c : copy the model configs for the selected model categories
-    # -------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    # -c and -t : copy the model configs for the selected model categories and types
+    # ------------------------------------------------------------------------------
     if args.categories:
-        copy_model_configs(args.categories, args.overwrite)
+        categories = args.categories
     else:
         print("**All model categories selected**\n")
-        copy_model_configs(SKLEARN_MODULES, args.overwrite)
+        categories = SKLEARN_MODULES
+    copy_model_configs(categories, args.model_type, args.models, args.overwrite)
     # ------------------------
     # Copy the default scripts
     # ------------------------
     print("\n***Copying the scripts***")
-    copy_files(default_scripts_path, os.getcwd(), (1, 15), '*.py', args.overwrite)
+    copy_files(default_scripts_dirpath, os.getcwd(), (27, 15), '*.py', args.overwrite)
     return 0
 
 
