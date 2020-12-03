@@ -153,6 +153,7 @@ class ConfigBoilerplate:
         # TODO: package name too? instead of program name (e.g. train_model.py)
         parser.add_argument("--version", action='version',
                             version='%(prog)s {}'.format(pyutils.__version__))
+        """
         parser.add_argument(
             "-c", "--cfg-filepath", dest="cfg_filepath", default=cfg_filepath,
             help='''File path to the model configuration file (.py) or the directory
@@ -160,6 +161,7 @@ class ConfigBoilerplate:
         parser.add_argument(
             "-l", "--log-filepath", dest="log_filepath", default=log_filepath,
             help='''File path to the logging configuration file (.py)''')
+        """
         parser.add_argument(
             "-m", "--model", dest="model",
             help='''The name of the model to use (e.g. LogisticRegression, 
