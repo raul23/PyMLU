@@ -13,8 +13,8 @@ from collections import OrderedDict
 from logging import NullHandler
 from runpy import run_path
 
-# import ipdb
 import pyutils
+from pyutils import MODEL_FNAME_SUFFIX
 
 
 def get_short_logger_name(name):
@@ -192,7 +192,12 @@ class ConfigBoilerplate:
         logger.debug(f"Logging path: {self.log_filepath}")
 
 
-def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*', overwrite=False):
+def copy_file():
+    pass
+
+
+def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
+               overwrite=False):
     for fp in glob.glob(os.path.join(src_dirpath, file_pattern)):
         fname = os.path.basename(fp)
         dest = os.path.join(dest_dirpath, fname)
@@ -202,7 +207,7 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*', overw
             continue
         else:
             # TODO: copy2?
-            print(f"Copying {os.path.basename(fp):{width[1]}s} to {dest}")
+            print(f"Copying {fname:{width[1]}s} to {dest}")
             copy(fp, dest)
 
 
@@ -222,10 +227,6 @@ def get_cfg_filepaths(args):
     return cfg_filepath, log_filepath
 
 
-def get_default_cfg_filepath():
-    return os.path.join(get_cfgs_dirpath(), 'config.py')
-
-
 def get_cfgs_dirpath():
     try:
         from configs import __path__ as configs_path
@@ -233,6 +234,10 @@ def get_cfgs_dirpath():
         # TODO: add logging message
         from pyutils.default_configs import __path__ as configs_path
     return configs_path[0]
+
+
+def get_default_cfg_filepath():
+    return os.path.join(get_cfgs_dirpath(), 'config.py')
 
 
 def get_default_logging_filepath():
@@ -259,9 +264,45 @@ def get_model_config_path(root, model_name):
     for path, subdirs, files in os.walk(root):
         for name in files:
             if model_name.lower() in name.lower():
-                found = True
                 filepath = os.path.join(path, name)
+                import ipdb
+                ipdb.set_trace()
+                break
     return filepath
+
+
+# TODO: use file_pattern (regex)
+def get_model_config_filepaths(root, categories=None, model_type=None,
+                               model_names=None, fname_suffix=MODEL_FNAME_SUFFIX,
+                               ignore_fnames=['__init__.py'], lower=True):
+    if model_type:
+        model_type = model_type.lower()
+        assert model_type in ['classifiers', 'regressors'], \
+            f"Invalid model type: {model_type}"
+    if categories is None:
+        categories = []
+    filepaths = []
+    for path, subdirs, files in os.walk(root):
+        for fname in files:
+            if fname in ignore_fnames or not fname.endswith(fname_suffix):
+                # fname should be ignore or doesn't have the correct suffix;
+                # next fname
+                continue
+            # else: fname has the correct suffix
+            # Search the fname for one of the model_names
+            model_name_found = is_substring_in_string(fname, model_names, lower)
+            current_model_type = os.path.basename(path)
+            current_model_category = os.path.basename(os.path.dirname(path))
+            if model_name_found or (current_model_type==model_type and
+                                    current_model_category in categories) or \
+                (model_type is None and current_model_category in categories):
+                # Add the fname since it is a valid one
+                filepaths.append(os.path.join(path, fname))
+            else:
+                # fname not part of a valid dirname (category) or not correct
+                # model type or model name not found in the fname; next fname
+                continue
+    return filepaths
 
 
 def get_settings(conf, is_logging=False):
@@ -272,6 +313,23 @@ def get_settings(conf, is_logging=False):
         if not opt_name.startswith('__') and not opt_name.endswith('__'):
             _settings.setdefault(opt_name, opt_value)
     return _settings
+
+
+def is_substring_in_string(string, substrings, lower=True):
+    # Search the string for one of the substrings
+    substring_found = False
+    for subs in substrings:
+        string_copy = string
+        if lower:
+            subs = subs.lower()
+            string_copy = string_copy.lower()
+        # else: don't lowercase the string
+        if string_copy.count(subs):
+            substring_found = True
+            # Valid string: contains the substring
+            break
+        # else: string doesn't have the correct substring; next substring
+    return substring_found
 
 
 def load_cfg_dict(cfg_filepath, is_logging=False):
