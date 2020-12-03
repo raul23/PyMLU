@@ -7,14 +7,16 @@ import importlib
 import json
 import logging.config
 import os
-from shutil import copy
 import sys
+from shutil import copy
 from collections import OrderedDict
 from logging import NullHandler
 from runpy import run_path
 
 import pyutils
-from pyutils import MODEL_FNAME_SUFFIX
+from pyutils import MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX, SKLEARN_MODULES
+from pyutils.default_configs import __path__ as default_configs_dirpath
+default_configs_dirpath = default_configs_dirpath[0]
 
 
 def get_short_logger_name(name):
@@ -75,6 +77,12 @@ class ConfigBoilerplate:
                     'cfg_dict': None, 'log_dict': None}
         parser = self._setup_argparser()
         args = parser.parse_args()
+        # ---------------------------------------------------------
+        # -l : list model categories and their associated ML models
+        # ---------------------------------------------------------
+        if args.list_categories:
+            list_model_categories_and_names()
+            sys.exit(0)
         if os.path.isdir(args.cfg_filepath):
             assert args.model, \
                 "Model's configs directory provided (-c argument) but model " \
@@ -153,19 +161,27 @@ class ConfigBoilerplate:
         # TODO: package name too? instead of program name (e.g. train_model.py)
         parser.add_argument("--version", action='version',
                             version='%(prog)s {}'.format(pyutils.__version__))
-        """
         parser.add_argument(
-            "-c", "--cfg-filepath", dest="cfg_filepath", default=cfg_filepath,
-            help='''File path to the model configuration file (.py) or the directory
-            path containing the various model configuration files.''')
+            "-l", "--list-categories", dest="list_categories", action='store_true',
+            help='''Show a list of all the supported ML model categories along 
+            with the associated model names. Then the program exits.''')
         parser.add_argument(
-            "-l", "--log-filepath", dest="log_filepath", default=log_filepath,
-            help='''File path to the logging configuration file (.py)''')
-        """
+            "-c", "--categories", dest="categories", nargs="*",
+            help='''Categories of ML models for which models will be trained.
+            These categories correspond to sklearn packages of ML models, e.g. 
+            ensemble or linear_model. Use the -l argument to show a complete 
+            list of the categories of ML models.''')
         parser.add_argument(
-            "-m", "--model", dest="model",
-            help='''The name of the model to use (e.g. LogisticRegression, 
-            Perceptron, SVC)''')
+            "-m", "--models", dest="models", nargs="*",
+            help='''Names of ML models that will be trained. These correspond 
+            to sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. 
+            Use the -l argument to show a complete list of the supported ML 
+            models.''')
+        parser.add_argument(
+            "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
+            default=None,
+            help='''The type of model for which models will be trained. `clf` 
+            is for classifier and `reg` is for regressor.''')
         return parser
 
     def _setup_log_from_cfg(self):
@@ -332,6 +348,29 @@ def is_substring_in_string(string, substrings, lower=True):
             break
         # else: string doesn't have the correct substring; next substring
     return substring_found
+
+
+def list_model_categories_and_names():
+    print("***List of model categories [C] and the associated ML models [M]***")
+    for i, module in enumerate(SKLEARN_MODULES, start=1):
+        spaces = '  ' if i < 10 else ' '
+        # e.g. (1)  ensemble
+        print(f"({i}){spaces}{module} [C]:")
+        # Path to the sklearn module directory
+        module_dirpath = os.path.join(default_configs_dirpath,
+                                      MODEL_CONFIGS_DIRNAME, module)
+        # For each sklearn module, print its associated model names
+        # Get all python files (model config files) under the sklearn module directory
+        for path, subdirs, files in os.walk(module_dirpath):
+            if files:
+                model_type = os.path.basename(path)
+                print(f"\t* {model_type}")
+            for fname in files:
+                # Retrieve the model name from the python config filename
+                # e.g. DummyClassifier_config.py -> DummyClassifier
+                model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
+                print(f"\t    - {model_name} [M]")
+    print("\nLegend:\n[C]: model category\n[M]: model name\n")
 
 
 def load_cfg_dict(cfg_filepath, is_logging=False):
