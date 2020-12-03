@@ -173,14 +173,14 @@ class ConfigBoilerplate:
             list of the categories of ML models.''')
         parser.add_argument(
             "-m", "--models", dest="models", nargs="*",
-            help='''Names of ML models that will be trained. These correspond 
-            to sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. 
-            Use the -l argument to show a complete list of the supported ML 
+            help='''Names of ML models that will be trained. These correspond
+            to sklearn classes of ML models, e.g. SVC or AdaBoostClassifier.
+            Use the -l argument to show a complete list of the supported ML
             models.''')
         parser.add_argument(
             "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
             default=None,
-            help='''The type of model for which models will be trained. `clf` 
+            help='''The type of model for which models will be trained. `clf`
             is for classifier and `reg` is for regressor.''')
         return parser
 
