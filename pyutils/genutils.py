@@ -199,17 +199,17 @@ class ConfigBoilerplate:
                             version='%(prog)s v{}'.format(pyutils.__version__))
         parser.add_argument(
             "-l", "--list-categories", dest="list_categories", action='store_true',
-            help='''Show a list of all the supported ML model categories. Then 
+            help='''Show a list of all the supported ML model categories. Then
             the program exits.''')
         parser.add_argument(
             "-lm", "--list-models", dest="list_models", action='store_true',
-            help='''Show a list of all the supported ML models. Then the 
+            help='''Show a list of all the supported ML models. Then the
             program exits.''')
         parser.add_argument(
             "-c", "--categories", dest="categories", nargs="*",
             help='''Categories of ML models for which models will be trained.
             These categories correspond to sklearn packages of ML models, e.g. 
-            ensemble or linear_model. Use the -l argument to show a complete 
+            ensemble or linear_model. Use the -l argument to show a complete
             list of all the ML model categories.''')
         parser.add_argument(
             "-m", "--models", dest="models", nargs="*",
