@@ -2,7 +2,6 @@
 """TODO
 """
 import argparse
-import glob
 import os
 from pathlib import Path
 from shutil import copy
@@ -147,9 +146,9 @@ def main():
     copy_files(default_configs_dirpath, configs_dirpath, (23, 11), '*.py',
                args.overwrite)
     print()
-    # ------------------------------------------------------------------------------
-    # -c and -t : copy the model configs for the selected model categories and types
-    # ------------------------------------------------------------------------------
+    # -----------------------------------------------------------------------------------
+    # -c -t -m: copy the model configs for the selected model categories, types and names
+    # -----------------------------------------------------------------------------------
     if args.categories:
         categories = args.categories
     else:
