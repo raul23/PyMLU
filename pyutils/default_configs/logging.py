@@ -54,7 +54,7 @@ logging = {
           "handlers": ["console"],
           "propagate": False
         },
-        "titanic.train_model":
+        "titanic.train_models":
         {
           "level": "DEBUG",
           "handlers": ["console"],
