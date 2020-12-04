@@ -343,19 +343,6 @@ def get_logger_name(module_name, module_file, package_name=None):
     return logger_name
 
 
-# TODO: remove?
-def get_model_config_path(root, model_name):
-    filepath = None
-    for path, subdirs, files in os.walk(root):
-        for name in files:
-            if model_name.lower() in name.lower():
-                filepath = os.path.join(path, name)
-                import ipdb
-                ipdb.set_trace()
-                break
-    return filepath
-
-
 # TODO: use file_pattern (regex)
 def get_model_config_filepaths(root, categories=None, model_type=None,
                                model_names=None, fname_suffix=MODEL_FNAME_SUFFIX,
@@ -468,7 +455,6 @@ def load_cfg_dict(cfg_filepath, is_logging):
         elif file_ext == '.json':
             cfg_dict = load_json(cfg_filepath)
         else:
-            # TODO: log error message
             raise FileNotFoundError(
                 f"[Errno 2] No such file or directory: "
                 f"{cfg_filepath}")
