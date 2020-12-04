@@ -42,11 +42,11 @@ logger_data.addHandler(NullHandler())
 
 class ConfigBoilerplate:
 
-    # eg. module_file = 'train_model.py'
+    # eg. module_file = 'train_models.py'
     def __init__(self, module_file):
-        assert module_file in ['explore_data.py', 'train_model.py'], \
+        assert module_file in ['explore_data.py', 'train_models.py'], \
             f"Invalid script name: {module_file}"
-        # e.g. _module_file = 'train_model'
+        # e.g. _module_file = 'train_models'
         self._module_file = os.path.basename(os.path.splitext(module_file)[0])
         # e.g. _package_name = 'titanic'
         self._package_name = os.path.basename(os.getcwd())
@@ -60,7 +60,7 @@ class ConfigBoilerplate:
         # ============================================
         # Parse command-line arguments and load config
         # ============================================
-        if self._module_file == 'train_model':
+        if self._module_file == 'train_models':
             retval = self._parse_cmdl_args_for_train_script()
         else:
             retval = self._parse_cmdl_args_for_explore_script()
@@ -72,7 +72,7 @@ class ConfigBoilerplate:
         self._setup_log_from_cfg()
 
     def get_cfg_dict(self):
-        if self._module_file == 'train_model':
+        if self._module_file == 'train_models':
             return self.cfg_dicts
         else:
             return self.cfg_dicts[0]
@@ -218,7 +218,7 @@ class ConfigBoilerplate:
     TODO\n''',
             # formatter_class=argparse.RawDescriptionHelpFormatter)
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        # TODO: package name too? instead of program name (e.g. train_model.py)
+        # TODO: package name too? instead of program name (e.g. train_models.py)
         parser.add_argument("--version", action='version',
                             version='%(prog)s v{}'.format(pyutils.__version__))
         parser.add_argument(
@@ -268,7 +268,7 @@ class ConfigBoilerplate:
         TODO\n''',
             # formatter_class=argparse.RawDescriptionHelpFormatter)
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        # TODO: package name too? instead of program name (e.g. train_model.py)
+        # TODO: package name too? instead of program name (e.g. train_models.py)
         parser.add_argument("--version", action='version',
                             version='%(prog)s v{}'.format(pyutils.__version__))
         return parser
@@ -279,7 +279,7 @@ class ConfigBoilerplate:
                             self._module_name,
                             self._module_file))
         # NOTE: if quiet and verbose are both activated, only quiet will have an effect
-        # TODO: get first cfg_dict to setup log (same in train_model.py)
+        # TODO: get first cfg_dict to setup log (same in train_models.py)
         if self.cfg_dicts[0]['quiet']:
             # TODO: disable logging completely? even error messages?
             module_logger.disabled = True
