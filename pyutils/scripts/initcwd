@@ -11,7 +11,9 @@ from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
                      SKLEARN_MODULES)
 from pyutils.default_configs import __path__ as default_configs_dirpath
 from pyutils.default_scripts import __path__ as default_scripts_dirpath
-from pyutils.genutils import copy_files, get_model_config_filepaths, mkdir
+from pyutils.genutils import (copy_files, get_model_config_filepaths,
+                              list_model_categories_and_names, mkdir)
+# TODO: call function from genutils
 default_configs_dirpath = default_configs_dirpath[0]
 default_scripts_dirpath = default_scripts_dirpath[0]
 
@@ -74,8 +76,12 @@ files.\n''',
                         version='%(prog)s {}'.format(pyutils.__version__))
     parser.add_argument(
         "-l", "--list-categories", dest="list_categories", action='store_true',
-        help='''Show a list of all the supported ML model categories along with
-        the associated model names. Then the program exits.''')
+        help='''Show a list of all the supported ML model categories. Then 
+                the program exits.''')
+    parser.add_argument(
+        "-lm", "--list-models", dest="list_models", action='store_true',
+        help='''Show a list of all the supported ML models. Then the
+                program exits.''')
     parser.add_argument(
         "-o", "--overwrite", dest="overwrite", action='store_true',
         help='''Overwrite existing files and folders generated from a previous
@@ -90,7 +96,7 @@ files.\n''',
         "-m", "--models", dest="models", nargs="*",
         help='''Names of ML models for which configuration files will be
         generated. These correspond to sklearn classes of ML models, e.g.
-        SVC or AdaBoostClassifier. Use the -l argument to show a complete 
+        SVC or AdaBoostClassifier. Use the -l argument to show a complete
         list of the supported ML models.''')
     parser.add_argument(
         "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
@@ -107,26 +113,11 @@ def main():
     # -l : list model categories and their associated ML models
     # ---------------------------------------------------------
     if args.list_categories:
-        print("***List of model categories [C] and the associated ML models [M]***")
-        for i, module in enumerate(SKLEARN_MODULES, start=1):
-            spaces = '  ' if i < 10 else ' '
-            # e.g. (1)  ensemble
-            print(f"({i}){spaces}{module} [C]:")
-            # Path to the sklearn module directory
-            module_dirpath = os.path.join(default_configs_dirpath,
-                                          MODEL_CONFIGS_DIRNAME, module)
-            # For each sklearn module, print its associated model names
-            # Get all python files (model config files) under the sklearn module directory
-            for path, subdirs, files in os.walk(module_dirpath):
-                if files:
-                    model_type = os.path.basename(path)
-                    print(f"\t* {model_type}")
-                for fname in files:
-                    # Retrieve the model name from the python config filename
-                    # e.g. DummyClassifier_config.py -> DummyClassifier
-                    model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
-                    print(f"\t    - {model_name} [M]")
-        print("\n\nLegend:\n[C]: model category\n[M]: model name")
+        list_model_categories_and_names(show_all=False)
+        return 0
+
+    if args.list_models:
+        list_model_categories_and_names()
         return 0
 
     # ------------------------------------------------
