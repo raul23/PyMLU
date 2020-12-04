@@ -7,8 +7,7 @@ from pathlib import Path
 from shutil import copy
 
 import pyutils
-from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
-                     SKLEARN_MODULES)
+from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, SKLEARN_MODULES)
 from pyutils.default_configs import __path__ as default_configs_dirpath
 from pyutils.default_scripts import __path__ as default_scripts_dirpath
 from pyutils.genutils import (copy_files, get_model_config_filepaths,
