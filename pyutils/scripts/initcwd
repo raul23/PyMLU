@@ -73,7 +73,7 @@ files.\n''',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # TODO: package name too? instead of program name (e.g. train_models.py)
     parser.add_argument("--version", action='version',
-                        version='%(prog)s {}'.format(pyutils.__version__))
+                        version='%(prog)s v{}'.format(pyutils.__version__))
     parser.add_argument(
         "-l", "--list-categories", dest="list_categories", action='store_true',
         help='''Show a list of all the supported ML model categories. Then
