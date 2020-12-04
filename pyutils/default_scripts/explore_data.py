@@ -1,17 +1,11 @@
-"""Exploring the Kaggle's Titanic dataset
+"""Auto-generated script for performing data exploration.
 
-This module only does data exploration of the Titanic dataset such as computing
+This module is used for doing data exploration of a dataset such as computing
 stats (e.g. mean, quantiles) and generating charts (e.g. bar chart and
 distribution graphs) in order to better understand the dataset.
 
-Thus after having explored the dataset under various aspects, we can use
-machine learning (ML) models to predict who will survive based on the Titanic
-passenger data (e.g. name, age, price of ticket, etc).
-
 The script :mod:`train_model` is used for training the ML model as defined in
-:mod:`config`.
-
-Dataset website: https://www.kaggle.com/c/titanic
+:mod:`configs`.
 """
 import logging.config
 from logging import NullHandler
