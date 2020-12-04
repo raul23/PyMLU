@@ -15,6 +15,7 @@ from pyutils.genutils import (copy_files, get_model_config_filepaths,
 # TODO: call function from genutils
 default_configs_dirpath = default_configs_dirpath[0]
 default_scripts_dirpath = default_scripts_dirpath[0]
+# TODO: add logging
 
 
 def copy_model_configs(categories, model_type=None, model_names=None, overwrite=False):
