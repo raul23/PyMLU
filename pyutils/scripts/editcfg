@@ -1,0 +1,39 @@
+#!/usr/bin/env python
+"""TODO
+"""
+import argparse
+import pyutils
+
+
+def setup_argparser():
+    """Setup the argument parser for the command-line script.
+
+    TODO
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Argument parser.
+
+    """
+    # Setup the parser
+    parser = argparse.ArgumentParser(
+        # usage="%(prog)s [OPTIONS]",
+        # prog=os.path.basename(__file__),
+        description='''\
+TODO\n''',
+        # formatter_class=argparse.RawDescriptionHelpFormatter)
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    # TODO: package name too? instead of program name (e.g. train_models.py)
+    parser.add_argument("--version", action='version',
+                        version='%(prog)s v{}'.format(pyutils.__version__))
+    return parser
+
+
+def main():
+    parser = setup_argparser()
+    args = parser.parse_args()
+
+
+if __name__ == '__main__':
+    main()
