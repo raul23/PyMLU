@@ -76,7 +76,7 @@ files.\n''',
                         version='%(prog)s {}'.format(pyutils.__version__))
     parser.add_argument(
         "-l", "--list-categories", dest="list_categories", action='store_true',
-        help='''Show a list of all the supported ML model categories. Then 
+        help='''Show a list of all the supported ML model categories. Then
                 the program exits.''')
     parser.add_argument(
         "-lm", "--list-models", dest="list_models", action='store_true',
