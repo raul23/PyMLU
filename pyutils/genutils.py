@@ -7,11 +7,12 @@ import importlib
 import json
 import logging.config
 import os
+import shutil
 import sys
-from shutil import copy
 from collections import OrderedDict
 from logging import NullHandler
 from runpy import run_path
+from warnings import warn
 
 import pyutils
 from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
@@ -68,6 +69,7 @@ class ConfigBoilerplate:
         else:
             return self.cfg_dicts[0]
 
+    # TODO: fix this function
     def _log_overridden_cfgs(self):
         cfg_types_map = {'cfg': 'config dict', 'log': 'logging dict'}
         for cfg_type, cfgs in self._overridden_cfgs.items():
@@ -81,8 +83,8 @@ class ConfigBoilerplate:
                     logger_data.debug(cfg)
                 logger_data.debug("")
 
-    # TODO: cfg_type = {'cfg', 'log'}
-    def _override_default_cfg_dict(self, new_cfg_dict, cfg_type):
+    @ staticmethod
+    def _override_default_cfg_dict(new_cfg_dict, cfg_type):
         assert cfg_type in ['cfg', 'log'], f"Invalid cfg_type: {cfg_type}"
         log_msgs = {'cfg': [], 'log': []}
         # Get default cfg dict
@@ -132,6 +134,21 @@ class ConfigBoilerplate:
             list_model_categories_and_names()
             sys.exit(0)
 
+        # ---------------------
+        # No arguments provided
+        # ---------------------
+        if args.categories is None and args.model_type is None \
+                and not args.models:
+            # TODO: done too in _parse_cmdl_args_for_explore_script()
+            cfg_dict = load_cfg_dict(self.main_cfg_filepath, is_logging=False)
+            cfg_data['cfg_dicts'].append(cfg_dict)
+            cfg_data['cfg_filepaths'].append(self.main_cfg_filepath)
+            # TODO: filter warnings
+            warn("No arguments provided to the script. Default model "
+                 f"'{cfg_dict['model']['model_type']}' from main configuration "
+                 "file will be used.")
+            return cfg_data
+
         # --------------------------------------------------
         # -c -t -m: categories, types and names of ML models
         # --------------------------------------------------
@@ -142,7 +159,6 @@ class ConfigBoilerplate:
                                      "script with the -l argument to get the "
                                      "complete list of all the supported "
                                      "categories")
-        # if (isinstance(args.categories, list) and not args.categories) or args.categories:
         if args.categories == [] or args.categories:
             assert args.model_type, \
                 "the following arguments are required: -t/--model_type"
@@ -160,6 +176,8 @@ class ConfigBoilerplate:
         model_config_filepaths = get_model_config_filepaths(
             model_configs_dirpath, args.categories, args.model_type,
             args.models, '.py')
+        import ipdb
+        ipdb.set_trace()
         if not model_config_filepaths:
             raise ValueError("No model config files could be retrieved. Check "
                              "the model names or categories provided to the "
@@ -288,7 +306,7 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
         else:
             # TODO: copy2?
             print(f"Copying {fname:{width[1]}s} to {dest}")
-            copy(fp, dest)
+            shutil.copy(fp, dest)
 
 
 def get_cfgs_dirpath():
