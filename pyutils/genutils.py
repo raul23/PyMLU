@@ -9,6 +9,7 @@ import logging.config
 import os
 import shutil
 import sys
+import warnings
 from collections import OrderedDict
 from logging import NullHandler
 from runpy import run_path
@@ -21,9 +22,16 @@ from pyutils.default_configs import __path__ as default_configs_dirpath
 default_configs_dirpath = default_configs_dirpath[0]
 
 
+# Ref.: https://stackoverflow.com/a/26433913/14664104
+def warning_on_one_line(message, category, filename, lineno, line=None):
+    return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
+
+
 def get_short_logger_name(name):
     return '.'.join(name.split('.')[-2:])
 
+
+warnings.formatwarning = warning_on_one_line
 
 logger = logging.getLogger(get_short_logger_name(__name__))
 logger.addHandler(NullHandler())
@@ -146,7 +154,7 @@ class ConfigBoilerplate:
             # TODO: filter warnings
             warn("No arguments provided to the script. Default model "
                  f"'{cfg_dict['model']['model_type']}' from main configuration "
-                 "file will be used.")
+                 "file will be used.", stacklevel=2)
             return cfg_data
 
         # --------------------------------------------------
@@ -176,8 +184,6 @@ class ConfigBoilerplate:
         model_config_filepaths = get_model_config_filepaths(
             model_configs_dirpath, args.categories, args.model_type,
             args.models, '.py')
-        import ipdb
-        ipdb.set_trace()
         if not model_config_filepaths:
             raise ValueError("No model config files could be retrieved. Check "
                              "the model names or categories provided to the "
