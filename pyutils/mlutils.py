@@ -202,6 +202,7 @@ class Dataset:
 
 
 def get_model(model_type, model_params, scale_input=False):
+    # TODO: eventually check verbose and quiet (need access to log_dict)
     logger.debug(f"Get model: {model_type}")
     model_type_split = model_type.split('.')
     assert len(model_type_split), \
