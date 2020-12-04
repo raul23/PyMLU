@@ -65,12 +65,12 @@ def setup_argparser():
         # usage="%(prog)s [OPTIONS]",
         # prog=os.path.basename(__file__),
         description='''\
-Initialize the current working directory with the scripts (e.g. train_model.py) 
-and the configuration folder containing the model and logging configuration 
+Initialize the current working directory with the scripts (e.g. train_models.py)
+and the configuration folder containing the model and logging configuration
 files.\n''',
         # formatter_class=argparse.RawDescriptionHelpFormatter)
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    # TODO: package name too? instead of program name (e.g. train_model.py)
+    # TODO: package name too? instead of program name (e.g. train_models.py)
     parser.add_argument("--version", action='version',
                         version='%(prog)s {}'.format(pyutils.__version__))
     parser.add_argument(
