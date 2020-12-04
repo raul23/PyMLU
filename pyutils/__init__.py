@@ -8,6 +8,7 @@ __version__ = "0.1.0a0"
 CONFIGS_DIRNAME = 'configs'
 MODEL_CONFIGS_DIRNAME = 'model_configs'
 MODEL_FNAME_SUFFIX = '_config.py'
+# TODO: get categories from directory
 SKLEARN_MODULES = ['calibration', 'dummy', 'ensemble', 'gaussian_process',
                    'linear_model', 'multiclass', 'multioutput', 'naive_bayes',
                    'neighbors', 'neural_network', 'semi_supervised', 'svm',
