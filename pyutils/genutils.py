@@ -121,9 +121,9 @@ class ConfigBoilerplate:
         parser = self._setup_argparser_for_train_script()
         args = parser.parse_args()
 
-        # ---------------------------------------------------------
-        # -l : list model categories and their associated ML models
-        # ---------------------------------------------------------
+        # --------------------------------------------------------------------
+        # -l and -lm : list model categories and/or their associated ML models
+        # --------------------------------------------------------------------
         if args.list_categories:
             list_model_categories_and_names(show_all=False)
             sys.exit(0)
