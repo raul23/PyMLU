@@ -14,7 +14,8 @@ from logging import NullHandler
 from runpy import run_path
 
 import pyutils
-from pyutils import MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX, SKLEARN_MODULES
+from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
+                     SKLEARN_MODULES)
 from pyutils.default_configs import __path__ as default_configs_dirpath
 default_configs_dirpath = default_configs_dirpath[0]
 
@@ -34,6 +35,8 @@ class ConfigBoilerplate:
 
     # eg. module_file = 'train_model.py'
     def __init__(self, module_file):
+        assert module_file in ['explore_data.py', 'train_model.py'], \
+            f"Invalid script name: {module_file}"
         # e.g. _module_file = 'train_model'
         self._module_file = os.path.basename(os.path.splitext(module_file)[0])
         # e.g. _package_name = 'titanic'
@@ -41,23 +44,29 @@ class ConfigBoilerplate:
         self._package_path = os.getcwd()
         self.module = importlib.import_module(self._module_file)
         self._module_name = self.module.__name__
-        # =============================================
-        # Parse command-line arguments and setup config
-        # =============================================
-        self._overridden_cfgs = {'cfg': [], 'log': []}
-        retval = self._parse_cmdl_args()
-        self.cfg_filepath = retval['cfg_filepath']
-        self.log_filepath = retval['log_filepath']
-        self.cfg_dict = retval['cfg_dict']
-        self.log_dict = retval['log_dict']
+        self.main_cfg_filepath = get_main_cfg_filepath()
+        self.log_filepath = get_logging_filepath()
+        # Get logging cfg dict
+        self.log_dict = load_cfg_dict(self.log_filepath, is_logging=True)
+        # ============================================
+        # Parse command-line arguments and load config
+        # ============================================
+        if self._module_file == 'train_model':
+            retval = self._parse_cmdl_args_for_train_script()
+        else:
+            retval = self._parse_cmdl_args_for_explore_script()
+        self.cfg_filepaths = retval['cfg_filepaths']
+        self.cfg_dicts = retval['cfg_dicts']
         # ==============================
         # Logging setup from config file
         # ==============================
         self._setup_log_from_cfg()
-        self._log_overridden_cfgs()
 
     def get_cfg_dict(self):
-        return self.cfg_dict
+        if self._module_file == 'train_model':
+            return self.cfg_dicts
+        else:
+            return self.cfg_dicts[0]
 
     def _log_overridden_cfgs(self):
         cfg_types_map = {'cfg': 'config dict', 'log': 'logging dict'}
@@ -72,57 +81,17 @@ class ConfigBoilerplate:
                     logger_data.debug(cfg)
                 logger_data.debug("")
 
-    def _parse_cmdl_args(self):
-        cfg_data = {'cfg_filepath': None, 'log_filepath': None,
-                    'cfg_dict': None, 'log_dict': None}
-        parser = self._setup_argparser()
-        args = parser.parse_args()
-        # ---------------------------------------------------------
-        # -l : list model categories and their associated ML models
-        # ---------------------------------------------------------
-        if args.list_categories:
-            list_model_categories_and_names()
-            sys.exit(0)
-        if os.path.isdir(args.cfg_filepath):
-            assert args.model, \
-                "Model's configs directory provided (-c argument) but model " \
-                "name (-m argument) missing"
-        if args.model:
-            if os.path.isdir(args.cfg_filepath):
-                cfg_filepath = get_model_config_path(args.cfg_filepath,
-                                                     args.model)
-            else:
-                # cfg_filepath not a directory
-                root = os.path.join(get_cfgs_dirpath(), 'model_configs')
-                cfg_filepath = get_model_config_path(root, args.model)
-            if cfg_filepath:
-                args.cfg_filepath = cfg_filepath
-            else:
-                args.cfg_filepath = ''
-            assert os.path.exists(args.cfg_filepath), \
-                f"The model's {args.model} config file doesn't exit: " \
-                f"{args.cfg_filepath}"
-        cfg_data['cfg_filepath'], cfg_data['log_filepath'] = get_cfg_filepaths(args)
-        # Get config dict
-        cfg_data['cfg_dict'] = load_cfg_dict(cfg_data['cfg_filepath'])
-        # Get logging cfg dict
-        cfg_data['log_dict'] = load_cfg_dict(cfg_data['log_filepath'],
-                                             is_logging=True)
-        # Override default cfg dict with user-defined cfg dict
-        self._override_default_cfg_dict(cfg_data['cfg_dict'])
-        # Override default logging cfg with user-defined logging cfg dict
-        self._override_default_cfg_dict(cfg_data['log_dict'], 'log')
-        return cfg_data
-
     # TODO: cfg_type = {'cfg', 'log'}
-    def _override_default_cfg_dict(self, new_cfg_dict, cfg_type='cfg'):
+    def _override_default_cfg_dict(self, new_cfg_dict, cfg_type):
+        assert cfg_type in ['cfg', 'log'], f"Invalid cfg_type: {cfg_type}"
+        log_msgs = {'cfg': [], 'log': []}
         # Get default cfg dict
         if cfg_type == 'cfg':
-            default_cfg_dict = load_cfg_dict(get_default_cfg_filepath())
+            default_cfg_dict = load_cfg_dict(get_main_cfg_filepath(),
+                                             is_logging=False)
         else:
             # cfg_type = 'log'
-            filepath = get_default_logging_filepath()
-            default_cfg_dict = load_cfg_dict(get_default_logging_filepath(),
+            default_cfg_dict = load_cfg_dict(get_logging_filepath(),
                                              is_logging=True)
         for k, v in default_cfg_dict.items():
             if new_cfg_dict.get(k) is None:
@@ -130,14 +99,83 @@ class ConfigBoilerplate:
             else:
                 if new_cfg_dict[k] != v:
                     if len(f"{v}") > 65 or len(f"{new_cfg_dict[k]}") > 65:
-                        log_msg = f"** {k} **:\n{v}\n| -> {new_cfg_dict[k]}"
+                        msg = f"** {k} **:\n{v}\n| -> {new_cfg_dict[k]}"
                     else:
-                        log_msg = f"** {k} **: {v} -> {new_cfg_dict[k]}"
-                    self._overridden_cfgs[cfg_type].append(log_msg)
+                        msg = f"** {k} **: {v} -> {new_cfg_dict[k]}"
+                    log_msgs[cfg_type].append(msg)
                     v = new_cfg_dict[k]
+        return log_msgs
+
+    def _parse_cmdl_args_for_explore_script(self):
+        cfg_data = {'cfg_filepaths': [], 'cfg_dicts': []}
+        parser = self._setup_argparser_for_explore_script()
+        args = parser.parse_args()
+        # Get config dict
+        cfg_dict = load_cfg_dict(self.main_cfg_filepath, is_logging=False)
+        cfg_data['cfg_dicts'].append(cfg_dict)
+        cfg_data['cfg_filepaths'].append(self.main_cfg_filepath)
+        return cfg_data
+
+    def _parse_cmdl_args_for_train_script(self):
+        cfg_data = {'cfg_filepaths': [], 'cfg_dicts': []}
+        parser = self._setup_argparser_for_train_script()
+        args = parser.parse_args()
+
+        # ---------------------------------------------------------
+        # -l : list model categories and their associated ML models
+        # ---------------------------------------------------------
+        if args.list_categories:
+            list_model_categories_and_names(show_all=False)
+            sys.exit(0)
+
+        if args.list_models:
+            list_model_categories_and_names()
+            sys.exit(0)
+
+        # --------------------------------------------------
+        # -c -t -m: categories, types and names of ML models
+        # --------------------------------------------------
+        if args.categories:
+            for cat in args.categories:
+                if cat not in SKLEARN_MODULES:
+                    raise ValueError(f"Invalid model category: {cat}. Run the "
+                                     "script with the -l argument to get the "
+                                     "complete list of all the supported "
+                                     "categories")
+        # if (isinstance(args.categories, list) and not args.categories) or args.categories:
+        if args.categories == [] or args.categories:
+            assert args.model_type, \
+                "the following arguments are required: -t/--model_type"
+        # if isinstance(args.categories, list) and not args.categories:
+        if args.categories == [] or \
+                (args.categories is None and args.model_type):
+            logger.info("**All model categories selected**\n")
+            args.categories = SKLEARN_MODULES
+        if args.model_type:
+            args.model_type = 'classifiers' if args.model_type == 'clf' else 'regressors'
+        args.models = [] if args.models is None else args.models
+        # Path to the model_configs directory in the current working directory
+        model_configs_dirpath = os.path.join(os.getcwd(), CONFIGS_DIRNAME,
+                                             MODEL_CONFIGS_DIRNAME)
+        model_config_filepaths = get_model_config_filepaths(
+            model_configs_dirpath, args.categories, args.model_type,
+            args.models, '.py')
+        if not model_config_filepaths:
+            raise ValueError("No model config files could be retrieved. Check "
+                             "the model names or categories provided to the "
+                             "script.")
+        for cfg_fp in model_config_filepaths:
+            # Get config dict
+            cfg_dict = load_cfg_dict(cfg_fp, is_logging=False)
+            # Override default cfg dict with user-defined cfg dict
+            log_msgs = self._override_default_cfg_dict(cfg_dict, 'cfg')
+            cfg_dict['_log_msgs'] = log_msgs
+            cfg_data['cfg_dicts'].append(cfg_dict)
+            cfg_data['cfg_filepaths'].append(cfg_fp)
+        return cfg_data
 
     @staticmethod
-    def _setup_argparser():
+    def _setup_argparser_for_train_script():
         """Setup the argument parser for the command-line script.
 
         TODO
@@ -148,8 +186,6 @@ class ConfigBoilerplate:
             Argument parser.
 
         """
-        cfg_filepath = get_default_cfg_filepath()
-        log_filepath = get_default_logging_filepath()
         # Setup the parser
         parser = argparse.ArgumentParser(
             # usage="%(prog)s [OPTIONS]",
@@ -160,28 +196,57 @@ class ConfigBoilerplate:
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         # TODO: package name too? instead of program name (e.g. train_model.py)
         parser.add_argument("--version", action='version',
-                            version='%(prog)s {}'.format(pyutils.__version__))
+                            version='%(prog)s v{}'.format(pyutils.__version__))
         parser.add_argument(
             "-l", "--list-categories", dest="list_categories", action='store_true',
-            help='''Show a list of all the supported ML model categories along 
-            with the associated model names. Then the program exits.''')
+            help='''Show a list of all the supported ML model categories. Then 
+            the program exits.''')
+        parser.add_argument(
+            "-lm", "--list-models", dest="list_models", action='store_true',
+            help='''Show a list of all the supported ML models. Then the 
+            program exits.''')
         parser.add_argument(
             "-c", "--categories", dest="categories", nargs="*",
             help='''Categories of ML models for which models will be trained.
             These categories correspond to sklearn packages of ML models, e.g. 
             ensemble or linear_model. Use the -l argument to show a complete 
-            list of the categories of ML models.''')
+            list of all the ML model categories.''')
         parser.add_argument(
             "-m", "--models", dest="models", nargs="*",
             help='''Names of ML models that will be trained. These correspond
             to sklearn classes of ML models, e.g. SVC or AdaBoostClassifier.
-            Use the -l argument to show a complete list of the supported ML
-            models.''')
+            Use the -lm argument to show a complete list of all the supported 
+            ML models.''')
         parser.add_argument(
             "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
             default=None,
             help='''The type of model for which models will be trained. `clf`
             is for classifier and `reg` is for regressor.''')
+        return parser
+
+    @staticmethod
+    def _setup_argparser_for_explore_script():
+        """Setup the argument parser for the command-line script.
+
+        TODO
+
+        Returns
+        -------
+        parser : argparse.ArgumentParser
+            Argument parser.
+
+        """
+        # Setup the parser
+        parser = argparse.ArgumentParser(
+            # usage="%(prog)s [OPTIONS]",
+            # prog=os.path.basename(__file__),
+            description='''\
+        TODO\n''',
+            # formatter_class=argparse.RawDescriptionHelpFormatter)
+            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        # TODO: package name too? instead of program name (e.g. train_model.py)
+        parser.add_argument("--version", action='version',
+                            version='%(prog)s v{}'.format(pyutils.__version__))
         return parser
 
     def _setup_log_from_cfg(self):
@@ -190,12 +255,13 @@ class ConfigBoilerplate:
                             self._module_name,
                             self._module_file))
         # NOTE: if quiet and verbose are both activated, only quiet will have an effect
-        if self.cfg_dict['quiet']:
+        # TODO: get first cfg_dict to setup log (same in train_model.py)
+        if self.cfg_dicts[0]['quiet']:
             # TODO: disable logging completely? even error messages?
             module_logger.disabled = True
         else:
             # Load logging config dict
-            if self.cfg_dict['verbose']:
+            if self.cfg_dicts[0]['verbose']:
                 set_logging_level(self.log_dict)
             logging.config.dictConfig(self.log_dict)
         # =============
@@ -204,14 +270,10 @@ class ConfigBoilerplate:
         logger.info("Running {} v{}".format(pyutils.__name__, pyutils.__version__))
         # logger.info("Using the dataset: {}".format(self._package_name))
         logger.info("Verbose option {}".format(
-            "enabled" if self.cfg_dict['verbose'] else "disabled"))
+            "enabled" if self.cfg_dicts[0]['verbose'] else "disabled"))
         logger.debug("Working directory: {}".format(self._package_path))
-        logger.debug(f"Config path: {self.cfg_filepath}")
+        logger.debug(f"Main config path: {get_main_cfg_filepath()}")
         logger.debug(f"Logging path: {self.log_filepath}")
-
-
-def copy_file():
-    pass
 
 
 def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
@@ -229,36 +291,16 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
             copy(fp, dest)
 
 
-def get_cfg_filepaths(args):
-    # Get default cfg filepaths
-    default_cfg = get_default_cfg_filepath()
-    default_log = get_default_logging_filepath()
-
-    # Get config filepaths from args (i.e. command-line)
-    cmdline_cfg = os.path.abspath(args.cfg_filepath) if args.cfg_filepath else None
-    cmdline_log = os.path.abspath(args.log_filepath) if args.log_filepath else None
-
-    # Get config filepaths from command line (if they are defined) or default ones
-    cfg_filepath = cmdline_cfg if cmdline_cfg else default_cfg
-    log_filepath = cmdline_log if cmdline_log else default_log
-
-    return cfg_filepath, log_filepath
-
-
 def get_cfgs_dirpath():
-    try:
-        from configs import __path__ as configs_path
-    except ImportError:
-        # TODO: add logging message
-        from pyutils.default_configs import __path__ as configs_path
+    from configs import __path__ as configs_path
     return configs_path[0]
 
 
-def get_default_cfg_filepath():
+def get_main_cfg_filepath():
     return os.path.join(get_cfgs_dirpath(), 'config.py')
 
 
-def get_default_logging_filepath():
+def get_logging_filepath():
     return os.path.join(get_cfgs_dirpath(), 'logging.py')
 
 
@@ -277,6 +319,7 @@ def get_logger_name(module_name, module_file, package_name=None):
     return logger_name
 
 
+# TODO: remove?
 def get_model_config_path(root, model_name):
     filepath = None
     for path, subdirs, files in os.walk(root):
@@ -308,9 +351,15 @@ def get_model_config_filepaths(root, categories=None, model_type=None,
                 continue
             # else: fname has the correct suffix
             # Search the fname for one of the model_names
-            model_name_found = is_substring_in_string(fname, model_names, lower)
+            # TODO: add it in a function (used somewhere else too)
+            current_model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
             current_model_type = os.path.basename(path)
             current_model_category = os.path.basename(os.path.dirname(path))
+            model_name_found = current_model_name in model_names
+            if model_name_found and model_type and model_type != current_model_type:
+                raise ValueError(f"Trying to train a model ({current_model_name}) "
+                                 "that is different from the specified model_type "
+                                 f"({model_type})")
             if model_name_found or (current_model_type==model_type and
                                     current_model_category in categories) or \
                 (model_type is None and current_model_category in categories):
@@ -328,7 +377,12 @@ def get_settings(conf, is_logging=False):
     if is_logging:
         return conf['logging']
     for opt_name, opt_value in conf.items():
-        if not opt_name.startswith('__') and not opt_name.endswith('__'):
+        if opt_name.startswith('__') and opt_name.endswith('__'):
+            continue
+        elif isinstance(opt_value, type(os)):
+            # e.g. import config
+            continue
+        else:
             _settings.setdefault(opt_name, opt_value)
     return _settings
 
@@ -350,30 +404,38 @@ def is_substring_in_string(string, substrings, lower=True):
     return substring_found
 
 
-def list_model_categories_and_names():
-    print("***List of model categories [C] and the associated ML models [M]***")
+def list_model_categories_and_names(show_all=True):
+    if show_all:
+        title = "***List of model categories [C] and the associated ML models [M]***"
+        module_msg_ending = "[C]:"
+    else:
+        title = "***List of model categories***"
+        module_msg_ending = ""
+    print(title)
     for i, module in enumerate(SKLEARN_MODULES, start=1):
         spaces = '  ' if i < 10 else ' '
         # e.g. (1)  ensemble
-        print(f"({i}){spaces}{module} [C]:")
+        print(f"({i}){spaces}{module} {module_msg_ending}")
         # Path to the sklearn module directory
         module_dirpath = os.path.join(default_configs_dirpath,
                                       MODEL_CONFIGS_DIRNAME, module)
-        # For each sklearn module, print its associated model names
-        # Get all python files (model config files) under the sklearn module directory
-        for path, subdirs, files in os.walk(module_dirpath):
-            if files:
-                model_type = os.path.basename(path)
-                print(f"\t* {model_type}")
-            for fname in files:
-                # Retrieve the model name from the python config filename
-                # e.g. DummyClassifier_config.py -> DummyClassifier
-                model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
-                print(f"\t    - {model_name} [M]")
-    print("\nLegend:\n[C]: model category\n[M]: model name\n")
+        if show_all:
+            # For each sklearn module, print its associated model names
+            # Get all python files (model config files) under the sklearn module directory
+            for path, subdirs, files in os.walk(module_dirpath):
+                if files:
+                    model_type = os.path.basename(path)
+                    print(f"\t* {model_type}")
+                for fname in files:
+                    # Retrieve the model name from the python config filename
+                    # e.g. DummyClassifier_config.py -> DummyClassifier
+                    model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
+                    print(f"\t    - {model_name} [M]")
+    if show_all:
+        print("\nLegend:\n[C]: model category\n[M]: model name\n")
 
 
-def load_cfg_dict(cfg_filepath, is_logging=False):
+def load_cfg_dict(cfg_filepath, is_logging):
     _, file_ext = os.path.splitext(cfg_filepath)
     try:
         if file_ext == '.py':
