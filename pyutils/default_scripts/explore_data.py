@@ -27,12 +27,12 @@ def main():
     # ---------------------------------
     # Setup logging and get config dict
     # ---------------------------------
-    bp = ge.ConfigBoilerplate(__file__)
+    cfg_dict = ge.ConfigBoilerplate(__file__).get_cfg_dict()
 
     # ------------------------------------
     # Data exploration: compute stats, ...
     # ------------------------------------
-    data = da.DataExplorer(**bp.get_cfg_dict())
+    data = da.DataExplorer(**cfg_dict)
     # For each column in the data (from train, test), list number of missing values
     data.count_null()
     # Compute stats (describe()) on each data (train, test)
