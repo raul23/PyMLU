@@ -48,16 +48,10 @@ logging = {
 
     "loggers":
     {
-        "titanic.explore_data":
+        "data":
         {
           "level": "DEBUG",
-          "handlers": ["console"],
-          "propagate": False
-        },
-        "titanic.train_models":
-        {
-          "level": "DEBUG",
-          "handlers": ["console"],
+          "handlers": ["console_only_msg"],
           "propagate": False
         },
         "pyutils.dautils":
@@ -78,10 +72,28 @@ logging = {
           "handlers": ["console"],
           "propagate": False
         },
-        "data":
+        "scripts.editcfg":
         {
           "level": "DEBUG",
-          "handlers": ["console_only_msg"],
+          "handlers": ["console"],
+          "propagate": False
+        },
+        "scripts.explore_data":
+        {
+          "level": "DEBUG",
+          "handlers": ["console"],
+          "propagate": False
+        },
+        "scripts.initcwd":
+        {
+          "level": "DEBUG",
+          "handlers": ["console"],
+          "propagate": False
+        },
+        "scripts.train_models":
+        {
+          "level": "DEBUG",
+          "handlers": ["console"],
           "propagate": False
         }
     },
