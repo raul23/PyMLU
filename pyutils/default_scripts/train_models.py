@@ -7,7 +7,7 @@ from sklearn.metrics import accuracy_score
 
 from pyutils import genutils as ge, mlutils as ml
 
-logger = logging.getLogger(ge.get_logger_name(__name__, __file__))
+logger = logging.getLogger(ge.get_logger_name(__name__, __file__, 'scripts'))
 logger.addHandler(NullHandler())
 
 logger_data = logging.getLogger('data')
