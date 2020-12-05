@@ -11,11 +11,10 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
 from pyutils import SKLEARN_MODULES
-from pyutils import genutils as ge
 
 pandas = None
 
-logger = logging.getLogger(ge.get_short_logger_name(__name__))
+logger = logging.getLogger(__name__)
 logger.addHandler(NullHandler())
 
 
