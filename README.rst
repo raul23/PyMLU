@@ -1,8 +1,6 @@
-======
-README
-======
-
-**WORK-IN-PROGRESS**
+=========================
+README (WORK IN PROGRESS)
+=========================
 
 **pyutils** is a library of common Python utilities especially for data analysis and machine learning.
 
