@@ -13,7 +13,7 @@ from logging import NullHandler
 from pyutils import dautils as da
 from pyutils import genutils as ge
 
-logger = logging.getLogger(ge.get_logger_name(__name__, __file__))
+logger = logging.getLogger(ge.get_logger_name(__name__, __file__, 'scripts'))
 logger.addHandler(NullHandler())
 
 
