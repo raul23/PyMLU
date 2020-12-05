@@ -6,10 +6,9 @@ from logging import NullHandler
 
 import pandas as pd
 
-from pyutils import genutils as ge
 from pyutils.mlutils import Dataset
 
-logger = logging.getLogger(ge.get_short_logger_name(__name__))
+logger = logging.getLogger(__name__)
 logger.addHandler(NullHandler())
 
 logger_data = logging.getLogger('data')
