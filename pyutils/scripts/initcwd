@@ -2,7 +2,9 @@
 """TODO
 """
 import argparse
+import logging.config
 import os
+from logging import NullHandler
 from pathlib import Path
 from shutil import copy
 
@@ -10,12 +12,14 @@ import pyutils
 from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, SKLEARN_MODULES)
 from pyutils.default_configs import __path__ as default_configs_dirpath
 from pyutils.default_scripts import __path__ as default_scripts_dirpath
-from pyutils.genutils import (copy_files, get_model_config_filepaths,
-                              list_model_categories_and_names, mkdir)
+from pyutils.genutils import (copy_files, get_logger_name,
+                              get_model_config_filepaths, list_model_info, mkdir)
 # TODO: call function from genutils
 default_configs_dirpath = default_configs_dirpath[0]
 default_scripts_dirpath = default_scripts_dirpath[0]
-# TODO: add logging
+
+logger = logging.getLogger(get_logger_name(__name__, __file__, 'scripts'))
+logger.addHandler(NullHandler())
 
 
 def copy_model_configs(categories, model_type=None, model_names=None, overwrite=False):
@@ -31,7 +35,8 @@ def copy_model_configs(categories, model_type=None, model_names=None, overwrite=
     default_model_configs_dirpath = os.path.join(default_configs_dirpath,
                                                  MODEL_CONFIGS_DIRNAME)
     model_config_filepaths = get_model_config_filepaths(
-        default_model_configs_dirpath, categories, model_type, model_names, '.py')
+        default_model_configs_dirpath, categories, model_type, model_names, '.py',
+        ['__init__.py'])
     for model_filepath in model_config_filepaths:
         fname = os.path.basename(model_filepath)
         model_type_dirpath = os.path.dirname(model_filepath)
@@ -113,11 +118,11 @@ def main():
     # -l : list model categories and their associated ML models
     # ---------------------------------------------------------
     if args.list_categories:
-        list_model_categories_and_names(show_all=False)
+        list_model_info(show_all=False)
         return 0
 
     if args.list_models:
-        list_model_categories_and_names()
+        list_model_info()
         return 0
 
     # ------------------------------------------------
