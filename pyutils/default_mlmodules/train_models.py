@@ -1,25 +1,16 @@
-"""TODO Auto-generated script
+"""Auto-generated module for training models.
+TODO
 """
-import logging.config
-from logging import NullHandler
-
-from sklearn.metrics import accuracy_score
-
 from pyutils import genutils as ge, mlutils as ml
 
-logger = logging.getLogger(ge.get_logger_name(__name__, __file__, 'scripts'))
-logger.addHandler(NullHandler())
-
-logger_data = logging.getLogger('data')
-logger_data.addHandler(NullHandler())
+logger = ge.init_log(__name__)
+logger_data = ge.init_log('data')
 
 
-def main():
-    # ---------------------------------
-    # Setup logging and get config dict
-    # ---------------------------------
-    cfg_dicts = ge.ConfigBoilerplate(__file__).get_cfg_dict()
-
+def train(cfg_dicts):
+    logger.debug("debug test")
+    logger.info("info test")
+    return 0
     # ---------
     # Load data
     # ---------
@@ -49,9 +40,8 @@ def main():
         logger.info("Getting predictions from test data")
         predictions = clf.predict(data.X_test)
         if data.y_test is not None:
+            # Slow to import
+            from sklearn.metrics import accuracy_score
+
             test_score = accuracy_score(data.y_test, predictions)
             logger.info(f"Score on test: {test_score}")
-
-
-if __name__ == '__main__':
-    main()
