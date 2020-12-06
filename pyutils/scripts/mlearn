@@ -6,6 +6,10 @@ import logging.config
 from logging import NullHandler
 
 import pyutils
+from pyutils.genutils import (get_config_dict, get_logger_name, setup_log)
+
+logger = logging.getLogger(get_logger_name(__name__, __file__))
+logger.addHandler(NullHandler())
 
 
 def setup_argparser():
@@ -104,18 +108,18 @@ combination with any of the other tasks and in that case, it is run first
     list_group = parser.add_argument_group('List model categories and names')
     list_group.add_argument(
         '-l', '--list-cwd', dest='list_cwd', action='store_true',
-        help='''Show a list of all the ML models found in the CURRENT WORKING 
+        help='''Show a list of all the ML models found in the CURRENT WORKING
         DIRECTORY. Then the program exits.''')
-    list_group.add_argument(
-        '-lam', '--list-all-models', dest='list_all_models',
-        action='store_true',
-        help=f'''Show a list of all the supported ML models found in
-        {pyutils.__name__}. Then the program exits.''')
     list_group.add_argument(
         '-lac', '--list-all-categories', dest='list_all_categories',
         action='store_true',
         help=f'''Show a list of all the supported categories of ML models found
         in {pyutils.__name__}. Then the program exits.''')
+    list_group.add_argument(
+        '-lam', '--list-all-models', dest='list_all_models',
+        action='store_true',
+        help=f'''Show a list of all the supported ML models found in
+            {pyutils.__name__}. Then the program exits.''')
     # ============
     # Train models
     # ============
@@ -146,8 +150,31 @@ def main():
     parser = setup_argparser()
     args = parser.parse_args()
 
-    from mlscripts import train_models
-    train_models.main2("Hello, World!")
+    # Check the current working directory if it has already been initialized
+    try:
+        cwd_ready = True
+        from mlconfigs import config
+    except ImportError:
+        cwd_ready = False
+
+    # To avoid logging info before listing the categoiries and model names
+
+    # -------------------------------------
+    # Get config filepath and setup logging
+    # -------------------------------------
+    if cwd_ready:
+        # Get config dict
+        main_cfg_dict = get_config_dict('main')
+        setup_log(main_cfg_dict['quiet'], main_cfg_dict['verbose'])
+    else:
+        # Get default config dict
+        main_cfg_dict = None
+
+    from mlmodules import train_models
+    train_models.train(main_cfg_dict)
+
+    from mlmodules import explore_data
+    explore_data.explore(main_cfg_dict)
 
 
 if __name__ == '__main__':
