@@ -4,7 +4,7 @@ import copy
 import logging.config
 from logging import NullHandler
 
-from pyutils.mlutils import Dataset
+from pymlutils.mlutils import Dataset
 
 pandas = None
 

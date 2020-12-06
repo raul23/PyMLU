@@ -18,9 +18,10 @@ from runpy import run_path
 from warnings import warn
 
 import pyutils
-from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
-                     SKLEARN_MODULES)
-from pyutils.default_mlconfigs import __path__ as default_configs_dirpath
+from pymlutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
+                       SKLEARN_MODULES)
+# TODO: call function
+from pymlutils.default_mlconfigs import __path__ as default_configs_dirpath
 default_configs_dirpath = default_configs_dirpath[0]
 
 

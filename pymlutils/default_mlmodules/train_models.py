@@ -1,7 +1,7 @@
 """Auto-generated module for training models.
 TODO
 """
-from pyutils import genutils as ge, mlutils as ml
+from pymlutils import genutils as ge, mlutils as ml
 
 logger = ge.init_log(__name__)
 logger_data = ge.init_log('data')

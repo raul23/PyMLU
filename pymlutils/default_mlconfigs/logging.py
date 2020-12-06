@@ -66,19 +66,19 @@ logging = {
           "handlers": ["console"],
           "propagate": False
         },
-        "pyutils.dautils":
+        "pymlutils.dautils":
         {
           "level": "DEBUG",
           "handlers": ["console"],
           "propagate": False
         },
-        "pyutils.genutils":
+        "pymlutils.genutils":
         {
           "level": "DEBUG",
           "handlers": ["console"],
           "propagate": False
         },
-        "pyutils.mlutils":
+        "pymlutils.mlutils":
         {
           "level": "DEBUG",
           "handlers": ["console"],

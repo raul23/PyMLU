@@ -6,7 +6,7 @@ from logging import NullHandler
 
 import numpy as np
 
-from pyutils import SKLEARN_MODULES
+from pymlutils import SKLEARN_MODULES
 
 pandas = None
 

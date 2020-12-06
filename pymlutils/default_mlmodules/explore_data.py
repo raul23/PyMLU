@@ -4,7 +4,7 @@ This module is used for doing data exploration of a dataset such as computing
 stats (e.g. mean, quantiles) and generating charts (e.g. bar chart and
 distribution graphs).
 """
-from pyutils import dautils as da, genutils as ge
+from pymlutils import dautils as da, genutils as ge
 
 logger = ge.init_log(__name__)
 logger_data = ge.init_log('data')

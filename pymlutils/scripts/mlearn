@@ -4,8 +4,8 @@
 import argparse
 
 import pyutils
-from pyutils.genutils import (get_config_dict, init_log,
-                              setup_log)
+from pymlutils.genutils import (get_config_dict, init_log,
+                                setup_log)
 
 logger = init_log(__name__, __file__)
 
