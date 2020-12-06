@@ -4,9 +4,9 @@ import copy
 import logging.config
 from logging import NullHandler
 
-import pandas as pd
-
 from pyutils.mlutils import Dataset
+
+pandas = None
 
 logger = logging.getLogger(__name__)
 logger.addHandler(NullHandler())
@@ -23,6 +23,10 @@ class DataExplorer:
                  valid_head=5, test_head=5, data_isnull=True,
                  train_isnull=True, valid_isnull=True, test_isnull=True,
                  *args, **kwargs):
+        global pandas
+        logger.info("Importing pandas...")
+        # Slow to import
+        import pandas
         self.train_stats = train_stats
         self.valid_stats = valid_stats
         self.test_stats = test_stats
@@ -43,7 +47,7 @@ class DataExplorer:
             X_data, y_data = self.dataset.get_data(data_type)
             if X_data is not None and y_data is not None:
                 # TODO: explain why we do concat()
-                concat_data = pd.concat([X_data, y_data], axis=1)
+                concat_data = pandas.concat([X_data, y_data], axis=1)
                 compute_stats(concat_data, data_type,
                               excluded_cols=self.excluded_cols)
             else:
@@ -55,7 +59,7 @@ class DataExplorer:
             X_data, y_data = self.dataset.get_data(data_type)
             if X_data is not None and y_data is not None \
                     and self.__getattribute__('{}_isnull'.format(data_type)):
-                concat_data = pd.concat([X_data, y_data], axis=1)
+                concat_data = pandas.concat([X_data, y_data], axis=1)
                 logger_data.info(
                     "*** Number of missing values for each column in {} "
                     "***\n{}\n".format(
@@ -70,7 +74,7 @@ class DataExplorer:
             n_rows = self.__getattribute__('{}_head'.format(data_type))
             X_data, y_data = self.dataset.get_data(data_type)
             if X_data is not None and y_data is not None:
-                concat_data = pd.concat([X_data, y_data], axis=1)
+                concat_data = pandas.concat([X_data, y_data], axis=1)
                 logger_data.info("*** First {} rows of {} ***\n{}\n".format(
                     n_rows,
                     data_type,
