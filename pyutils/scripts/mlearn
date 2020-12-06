@@ -13,8 +13,6 @@ logger = init_log(__name__, __file__)
 def setup_argparser():
     """Setup the argument parser for the command-line script.
 
-    TODO
-
     Returns
     -------
     parser : argparse.ArgumentParser
@@ -35,7 +33,7 @@ be performed:
 * train models (-tc, -tm, -tt)
 
 NOTE: the -a* arguments (adding model configuration files) can be run in
-combination with any of the other tasks and in that case, it is run first
+combination with any of the other tasks and in that case, they are run first
 ''',
         formatter_class=argparse.RawDescriptionHelpFormatter)
     # ===============
