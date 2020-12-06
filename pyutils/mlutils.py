@@ -6,10 +6,6 @@ from logging import NullHandler
 
 import numpy as np
 
-from sklearn import datasets
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import StandardScaler
-
 from pyutils import SKLEARN_MODULES
 
 pandas = None
@@ -25,6 +21,7 @@ class Dataset:
                  random_seed=0, *args, **kwargs):
         global pandas
         logger.info("Importing pandas...")
+        # Slow to import
         import pandas
         # ------------------
         # Parameters parsing
@@ -131,6 +128,8 @@ class Dataset:
         self.X_test = pandas.get_dummies(self.X_test)
 
     def _process_builtin_dataset(self):
+        # Slow to import
+        from sklearn import datasets
         # ------------
         # Load dataset
         # ------------
@@ -253,11 +252,13 @@ def get_model(model_type, model_params, scale_input=False):
         # Only the ensemble method, e.g. RandomForestClassifier
         model = model_class(**model_params)
     if scale_input:
-        logger.info("Input will be scaled")
+        # Slow to import
+        from sklearn.pipeline import make_pipeline
+        from sklearn.preprocessing import StandardScaler
         """
         logger.info("Importing sklearn.pipeline.make_pipeline")
-        from sklearn.pipeline import make_pipeline
         """
+        logger.info("Input will be scaled")
         return make_pipeline(StandardScaler(), model)
     else:
         return model
