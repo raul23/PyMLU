@@ -20,7 +20,7 @@ from warnings import warn
 import pyutils
 from pyutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
                      SKLEARN_MODULES)
-from pyutils.default_configs import __path__ as default_configs_dirpath
+from pyutils.default_mlconfigs import __path__ as default_configs_dirpath
 default_configs_dirpath = default_configs_dirpath[0]
 
 
@@ -58,7 +58,7 @@ class ConfigBoilerplate:
         self._package_path = os.getcwd()
         self.module = importlib.import_module(self._module_file)
         self._module_name = self.module.__name__
-        self.main_cfg_filepath = get_main_cfg_filepath()
+        self.main_cfg_filepath = get_main_config_filepath()
         self.log_filepath = get_logging_filepath()
         # Get logging cfg dict
         self.log_dict = load_cfg_dict(self.log_filepath, 'log')
@@ -101,7 +101,7 @@ class ConfigBoilerplate:
         log_msgs = {'cfg': [], 'log': []}
         # Get default cfg dict
         if cfg_type == 'cfg':
-            default_cfg_dict = load_cfg_dict(get_main_cfg_filepath(), cfg_type)
+            default_cfg_dict = load_cfg_dict(get_main_config_filepath(), cfg_type)
         elif cfg_type == 'log':
             # cfg_type = 'log'
             default_cfg_dict = load_cfg_dict(get_logging_filepath(), cfg_type)
@@ -259,17 +259,17 @@ class ConfigBoilerplate:
             help='''Show a list of all the supported ML models. Then the
             program exits.''')
         parser.add_argument(
-            "-c", "--categories", dest="categories", nargs="*",
+            "-c", "--categories", dest="categories", nargs="+",
             help='''Categories of ML models for which models will be trained.
             These categories correspond to sklearn packages of ML models, e.g. 
             ensemble or linear_model. Use the -l argument to show a complete
             list of all the ML model categories.''')
         parser.add_argument(
-            "-m", "--models", dest="models", nargs="*",
+            "-m", "--models", dest="models", nargs="+",
             help='''Names of ML models that will be trained. These correspond
             to sklearn classes of ML models, e.g. SVC or AdaBoostClassifier.
             Use the -lm argument to show a complete list of all the supported 
-            ML models.''')
+            ML models. Accept model name abbreviations as shown in the list.''')
         parser.add_argument(
             "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
             default=None,
@@ -293,7 +293,7 @@ class ConfigBoilerplate:
         logger.info("Verbose option {}".format(
             "enabled" if self.cfg_dicts[0]['verbose'] else "disabled"))
         logger.debug("Working directory: {}".format(self._package_path))
-        logger.debug(f"Main config path: {get_main_cfg_filepath()}")
+        logger.debug(f"Main config path: {get_main_config_filepath()}")
         logger.debug(f"Logging path: {self.log_filepath}")
 
 
@@ -312,9 +312,9 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
             shutil.copy(fp, dest)
 
 
-def get_cfg_dict(cfg_type):
+def get_config_dict(cfg_type):
     if cfg_type == 'main':
-        cfg_filepath = get_main_cfg_filepath()
+        cfg_filepath = get_main_config_filepath()
     elif cfg_type == 'log':
         cfg_filepath = get_logging_filepath()
     else:
@@ -323,8 +323,18 @@ def get_cfg_dict(cfg_type):
 
 
 def get_configs_dirpath():
-    from configs import __path__ as configs_path
-    return configs_path[0]
+    from mlconfigs import __path__
+    return __path__[0]
+
+
+def get_default_configs_dirpath():
+    from pyutils.default_configs import __path__
+    return __path__[0]
+
+
+def get_default_scripts_dirpath():
+    from pyutils.default_scripts import __path__
+    return __path__[0]
 
 
 def get_default_model_configs_dirpath():
@@ -332,7 +342,7 @@ def get_default_model_configs_dirpath():
     return os.path.join(default_configs_dirpath, MODEL_CONFIGS_DIRNAME)
 
 
-def get_main_cfg_filepath():
+def get_main_config_filepath():
     return os.path.join(get_configs_dirpath(), 'config.py')
 
 
@@ -352,13 +362,15 @@ def remove_ext(filename):
 # TODO: explain cases
 def get_logger_name(module__name__, module___file__, package_name=None):
     if os.path.isabs(module___file__):
-        module_name = os.path.basename(module___file__)
+        # e.g. initcwd or editcfg
+        module_name = os.path.splitext(os.path.basename(module___file__))[0]
         package_path = os.path.dirname(module___file__)
         package_name = os.path.basename(package_path)
         logger_name = "{}.{}".format(
             package_name,
             module_name)
     elif module__name__ == '__main__' or not module__name__.count('.'):
+        # e.g. train_models.py or explore_data.py
         if package_name is None:
             package_name = os.path.basename(os.getcwd())
         logger_name = "{}.{}".format(
@@ -367,6 +379,7 @@ def get_logger_name(module__name__, module___file__, package_name=None):
     elif module__name__.count('.') > 1:
         logger_name = '.'.join(module__name__.split('.')[-2:])
     else:
+        # e.g. importing mlutils from train_models.py
         logger_name = module__name__
     return logger_name
 
@@ -458,7 +471,7 @@ def is_substring(string, substrings, lower=True):
 
 
 def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
-    log_msgs = []
+    msgs = ""
     abbr_dict = {}
     default_abbreviations = {
         'CategoricalNB': 'CatNB',
@@ -475,18 +488,22 @@ def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
         abbreviations = default_abbreviations.update(abbreviations)
     if show_all:
         title = "***List of model categories and the associated ML models***"
-        module_msg_ending = "[C]:"
     else:
         title = "***List of model categories***"
-        module_msg_ending = ""
-    log_msgs.append(title)
+    msgs += title
     acronyms = []
     for i, module in enumerate(SKLEARN_MODULES, start=1):
         spaces = '  ' if i < 10 else ' '
         # e.g. (1)  ensemble
-        log_msgs.append(f"({i}){spaces}{module} {module_msg_ending}")
+        msgs += f"\n({i}){spaces}{module}"
         # Path to the model configs folder in the working directory
         module_dirpath = os.path.join(get_model_configs_dirpath(), module)
+        if module  == 'ensemble':
+            import ipdb
+            ipdb.set_trace()
+        if not os.path.exists(module_dirpath):
+            module_dirpath = os.path.join(get_default_model_configs_dirpath(),
+                                          module)
         if show_all:
             # For each sklearn module, print its associated model names
             # Get all python files (model config files) under the sklearn module directory
@@ -506,7 +523,7 @@ def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
                         if i == 0:
                             # i.e. classifiers or regressors
                             model_type = os.path.basename(path)
-                            log_msgs.append(f"\t* {model_type}")
+                            msgs += f"\n\t* {model_type}"
 
                         def get_acronym(compound_word):
                             return ''.join([l for l in compound_word if not l.islower()])
@@ -521,13 +538,14 @@ def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
                                 i += 1
                             acronyms.append(acronym)
                             short_name = acronym
-                        log_msgs.append(f"\t    - {model_name} [{short_name}]")
+                        msgs += f"\n\t    - {model_name} [{short_name}]"
                         abbr_dict.setdefault(short_name.lower(), model_name)
     if show_all:
-        log_msgs.append("\nLegend:\n[C]: model category\n[M]: model name abbreviations\n")
+        msgs += "\n\nNotes:\n- Beside each number in parentheses, it is the " \
+                "model category\n- Between brackets, it is the model name " \
+                "abbreviation\n"
     if print_msgs:
-        for msg in log_msgs:
-            logger_data.info(msg)
+        print(msgs)
     return abbr_dict
 
 
@@ -645,6 +663,19 @@ def run_cmd(cmd):
         return result
 
 
+def process_model_names(model_names):
+    processed_names = []
+    for model_name in model_names:
+        abbr_dict = list_model_info(print_msgs=False)
+        model_name = model_name.lower()
+        if abbr_dict.get(model_name):
+            processed_names.append(abbr_dict.get(model_name))
+        else:
+            processed_names.append(model_name)
+    return processed_names
+
+
+
 def set_logging_level(log_dict, level='DEBUG'):
     keys = ['handlers', 'loggers']
     for k in keys:
@@ -671,5 +702,5 @@ def setup_log(quiet=False, verbose=False):
     logger.info("Verbose option {}".format(
         "enabled" if verbose else "disabled"))
     logger.debug("Working directory: {}".format(package_path))
-    logger.debug(f"Main config path: {get_main_cfg_filepath()}")
+    logger.debug(f"Main config path: {get_main_config_filepath()}")
     logger.debug(f"Logging path: {log_filepath}")
