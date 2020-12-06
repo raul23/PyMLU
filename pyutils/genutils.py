@@ -453,6 +453,16 @@ def get_settings(conf, cfg_type):
         raise ValueError(f"Invalid cfg_type: {cfg_type}")
 
 
+def init_log(module__name__, module___file__=None, package_name=None):
+    if module___file__:
+        logger = logging.getLogger(get_logger_name(module__name__, module___file__,
+                                                   package_name))
+    else:
+        logger = logging.getLogger(module__name__)
+    logger.addHandler(NullHandler())
+    return logger
+
+
 def is_substring(string, substrings, lower=True):
     # Search the string for one of the substrings
     substring_found = False
