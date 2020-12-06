@@ -1,3 +1,154 @@
 #!/usr/bin/env python
 """TODO
 """
+import argparse
+import logging.config
+from logging import NullHandler
+
+import pyutils
+
+
+def setup_argparser():
+    """Setup the argument parser for the command-line script.
+
+    TODO
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Argument parser.
+
+    """
+    # Setup the parser
+    parser = argparse.ArgumentParser(
+        description='''\
+Script for initializing the current working directory with the configuration
+folder and the modules for doing data exploration and training models (-a*).
+
+Once the current working directory is initialized, the following tasks can
+be performed:
+* perform data exploration (-d)
+* edit a file (-e)
+* list the installed model categories and names (-l)
+* train models (-tc, -tm, -tt)
+
+NOTE: the -a* arguments (adding model configuration files) can be run in
+combination with any of the other tasks and in that case, it is run first
+''',
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    # ===============
+    # General options
+    # ===============
+    # TODO: package name too? instead of program name (e.g. train_models.py)
+    parser.add_argument('--version', action='version',
+                        version='%(prog)s v{}'.format(pyutils.__version__))
+    # Group arguments that are closely related
+    # =======================
+    # Add configuration files
+    # =======================
+    add_group = parser.add_argument_group('Add configuration files to the'
+                                          'current working directory')
+    add_group.add_argument(
+        '-ac', '--add-categories', dest='add_categories', nargs='+',
+        metavar='CATEGORY',
+        help='''Categories of ML models for which configuration files will be
+        generated in the current working directory. These correspond to sklearn
+        packages of ML models, e.g. ensemble or linear_model. Use the -lac
+        argument to show a complete list of all the supported categories of ML
+        models.''')
+    add_group.add_argument(
+        '-am', '--add-models', dest='add_models', nargs='+', metavar='MODEL',
+        help='''Names of ML models for which configuration files will be
+        generated in the current working directory. These correspond to
+        sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. Use the
+        -lam argument to show a complete list of all the supported ML models.
+        It accepts model name abbreviations (e.g. ABC for AdaBoostClassifier)
+        as shown in the list.''')
+    add_group.add_argument(
+        '-at', '--add-type', dest='add_type', choices=['clf', 'reg'],
+        default=None,
+        help='''The type of model for which configuration files will be
+        generated in the current working directory where 'clf' is for
+        classifier and 'reg' is for regressor.''')
+    add_group.add_argument(
+        '-o', '--overwrite', dest='overwrite', action='store_true',
+        help='''Overwrite existing files and folders generated from a previous
+        run of the script.''')
+    # ================
+    # Data exploration
+    # ================
+    data_group = parser.add_argument_group('Data exploration')
+    data_group.add_argument(
+        '-d', '--data', action='store_true',
+        help='''Perform data exploration of a dataset as defined in the main
+        configuration file (config.py).''')
+    # ==========
+    # Edit files
+    # ==========
+    edit_group = parser.add_argument_group('Edit a configuration file or script')
+    edit_group.add_argument(
+        '-e', '--edit', dest='filename', default='main',
+        help='''Name of a file to edit which can either be the main
+        configuration file ('config'), logging configuration file ('log'), a
+        particular model configuration file (e.g. LogisticRegression) or a
+        module ({'explore_data', 'train_models'}). It also accept model name
+        abbreviations as shown in the list (-lm).''')
+    edit_group.add_argument(
+        '-app', '--app-name', dest='app', metavar='NAME',
+        help='''Name of the application to use for editing the file. If no name
+        is given, then the default application for opening this type of file
+        will be used.''')
+    # ===============================
+    # List model categories and names
+    # ===============================
+    list_group = parser.add_argument_group('List model categories and names')
+    list_group.add_argument(
+        '-l', '--list-cwd', dest='list_cwd', action='store_true',
+        help='''Show a list of all the ML models found in the CURRENT WORKING 
+        DIRECTORY. Then the program exits.''')
+    list_group.add_argument(
+        '-lam', '--list-all-models', dest='list_all_models',
+        action='store_true',
+        help=f'''Show a list of all the supported ML models found in
+        {pyutils.__name__}. Then the program exits.''')
+    list_group.add_argument(
+        '-lac', '--list-all-categories', dest='list_all_categories',
+        action='store_true',
+        help=f'''Show a list of all the supported categories of ML models found
+        in {pyutils.__name__}. Then the program exits.''')
+    # ============
+    # Train models
+    # ============
+    add_group = parser.add_argument_group('Train models')
+    add_group.add_argument(
+        '-tc', '--train-categories', dest='add_categories', nargs='+',
+        metavar='CATEGORY',
+        help='''Categories of ML models that will be trained. These correspond
+        to sklearn packages of ML models, e.g. ensemble or linear_model. Use
+        the -lac argument to show a complete list of all the supported
+        categories of ML models.''')
+    add_group.add_argument(
+        '-tm', '--train-models', dest='add_models', nargs='+',
+        metavar='MODEL',
+        help='''Names of ML models for which configuration files will be
+        generated. These correspond to sklearn classes of ML models, e.g. SVC
+        or AdaBoostClassifier. It also accept model name abbreviations as shown
+        in the list (-lam).''')
+    add_group.add_argument(
+        '-tt', '--train-type', dest='add_type', choices=['clf', 'reg'],
+        default=None,
+        help='''The type of models that will be trained where 'clf' is for
+        classifier and 'reg' is for regressor.''')
+    return parser
+
+
+def main():
+    parser = setup_argparser()
+    args = parser.parse_args()
+
+    from mlscripts import train_models
+    train_models.main2("Hello, World!")
+
+
+if __name__ == '__main__':
+    main()
