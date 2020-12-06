@@ -2,14 +2,12 @@
 """TODO
 """
 import argparse
-import logging.config
-from logging import NullHandler
 
 import pyutils
-from pyutils.genutils import (get_config_dict, get_logger_name, setup_log)
+from pyutils.genutils import (get_config_dict, init_log,
+                              setup_log)
 
-logger = logging.getLogger(get_logger_name(__name__, __file__))
-logger.addHandler(NullHandler())
+logger = init_log(__name__, __file__)
 
 
 def setup_argparser():
