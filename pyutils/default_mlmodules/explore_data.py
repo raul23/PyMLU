@@ -1,28 +1,19 @@
-"""Auto-generated script for performing data exploration.
+"""Auto-generated module for performing data exploration.
 
 This module is used for doing data exploration of a dataset such as computing
 stats (e.g. mean, quantiles) and generating charts (e.g. bar chart and
 distribution graphs) in order to better understand the dataset.
-
-The script :mod:`train_model` is used for training the ML model as defined in
-:mod:`configs`.
 """
-import logging.config
-from logging import NullHandler
+from pyutils import dautils as da, genutils as ge
 
-from pyutils import dautils as da
-from pyutils import genutils as ge
-
-logger = logging.getLogger(ge.get_logger_name(__name__, __file__, 'scripts'))
-logger.addHandler(NullHandler())
+logger = ge.init_log(__name__)
+logger_data = ge.init_log('data')
 
 
-def main():
-    # ---------------------------------
-    # Setup logging and get config dict
-    # ---------------------------------
-    cfg_dict = ge.ConfigBoilerplate(__file__).get_cfg_dict()
-
+def explore(cfg_dict):
+    logger.debug("debug test")
+    logger.info("info test")
+    return 0
     # ------------------------------------
     # Data exploration: compute stats, ...
     # ------------------------------------
@@ -33,7 +24,3 @@ def main():
     data.compute_stats()
     # Print first N rows from each data (train, test)
     data.head()
-
-
-if __name__ == '__main__':
-    main()
