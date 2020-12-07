@@ -5,7 +5,7 @@ logging = {
     {
         "console":
         {
-          "format": "[%(name)-20s] | %(levelname)-8s | %(message)s"
+          "format": "[%(name)-30s] | %(levelname)-8s | %(message)s"
         },
         "only_msg":
         {
@@ -27,7 +27,7 @@ logging = {
         {
           "level": "INFO",
           "class": "logging.StreamHandler",
-          "formatter": "console"
+          "formatter": "simple"
         },
         "console_only_msg":
         {
@@ -52,6 +52,18 @@ logging = {
         {
           "level": "DEBUG",
           "handlers": ["console_only_msg"],
+          "propagate": False
+        },
+        "default_mlmodules.explore_data":
+        {
+          "level": "DEBUG",
+          "handlers": ["console"],
+          "propagate": False
+        },
+        "default_mlmodules.train_models":
+        {
+          "level": "DEBUG",
+          "handlers": ["console"],
           "propagate": False
         },
         "mlmodules.explore_data":
