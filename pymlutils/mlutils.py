@@ -5,6 +5,8 @@ import logging
 from logging import NullHandler
 
 from pymlutils import SKLEARN_MODULES
+from pymlutils.genutils import get_configs
+from pymlutils.default_mlmodules.train_models import train
 
 numpy = None
 pandas = None
@@ -260,3 +262,10 @@ def get_model(model_type, model_params, scale_input=False):
         return make_pipeline(StandardScaler(), model)
     else:
         return model
+
+
+# TODO: from example.py
+def train_models(new_config_dict=None, model_configs=None, quiet=None,
+                 verbose=None, logging_level=None):
+    cfgs = get_configs(**locals())
+    train(cfgs)
