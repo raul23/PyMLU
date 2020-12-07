@@ -7,17 +7,14 @@ logger = ge.init_log(__name__)
 logger_data = ge.init_log('data')
 
 
-def train(cfg_dicts):
-    logger.debug("debug test")
-    logger.info("info test")
-    return 0
+def train(configs):
     # ---------
     # Load data
     # ---------
-    data = ml.Dataset(**cfg_dicts[0])
+    data = ml.Dataset(**configs[0])
 
     # For each model, get its config dict
-    for i, cfg_dict in enumerate(cfg_dicts, start=1):
+    for i, cfg_dict in enumerate(configs, start=1):
         # ---------
         # Get model
         # ---------
