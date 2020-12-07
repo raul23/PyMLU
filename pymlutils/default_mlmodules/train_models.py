@@ -4,10 +4,11 @@ TODO
 from pymlutils import genutils as ge, mlutils as ml
 
 logger = ge.init_log(__name__)
-logger_data = ge.init_log('data')
 
 
 def train(configs):
+    if not isinstance(configs, list):
+        configs = [configs]
     # ---------
     # Load data
     # ---------
@@ -18,15 +19,15 @@ def train(configs):
         # ---------
         # Get model
         # ---------
-        logger_data.info("")
+        logger.info("")
         logger.info(f"Model #{i}: {cfg_dict['model']['model_type']}")
         clf = ml.get_model(**cfg_dict['model'])
 
         # -----------
         # Train model
         # -----------
-        logger.info("Training model")
-        logger_data.debug(f"{clf}")
+        logger.info(f"Training model")
+        logger.debug(f"Model: {clf}")
         clf.fit(data.X_train, data.y_train)
         score = clf.score(data.X_train, data.y_train)
         logger.info(f"Score on train: {score}")
