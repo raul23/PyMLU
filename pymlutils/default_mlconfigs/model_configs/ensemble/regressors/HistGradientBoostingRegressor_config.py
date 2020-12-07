@@ -11,7 +11,7 @@ from configs import config
 #
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.HistGradientBoostingClassifier.html
 model = {
-    'model_type': 'sklearn.ensemble.HistGradientBoostingClassifier',
+    'model_name': 'sklearn.ensemble.HistGradientBoostingClassifier',
     'model_params': {
         'learning_rate': 0.1,  # 1 for no shrinkage
         'random_state': config.random_seed

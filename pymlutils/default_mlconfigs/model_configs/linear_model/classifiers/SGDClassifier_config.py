@@ -6,7 +6,7 @@ from configs import config
 # - Always scale the input.
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html
 model = {
-    'model_type': 'sklearn.linear_model.SGDClassifier',
+    'model_name': 'sklearn.linear_model.SGDClassifier',
     'model_params': {
         'max_iter': 1000,
         'tol': 1e-3,

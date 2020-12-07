@@ -6,7 +6,7 @@ from configs import config
 # - Do not use it for real problems
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.dummy.DummyClassifier.html
 model = {
-    'model_type': 'sklearn.dummy.DummyClassifier',
+    'model_name': 'sklearn.dummy.DummyClassifier',
     'model_params': {
         # stratified, most_frequent, prior, uniform, constant
         'strategy': 'constant',

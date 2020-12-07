@@ -3,7 +3,7 @@ from configs import config
 # ML model
 # --------
 estimator_01 = {
-    'model_type': 'sklearn.ensemble.RandomForestClassifier',
+    'model_name': 'sklearn.ensemble.RandomForestClassifier',
     'model_params': {
         'n_estimators': 100,
         'max_depth': 5,
@@ -12,7 +12,7 @@ estimator_01 = {
 }
 
 estimator_02 = {
-    'model_type': 'sklearn.svm.LinearSVC',
+    'model_name': 'sklearn.svm.LinearSVC',
     'model_params': {
         'loss': 'squared_hinge',
         'tol': 1e-4,
@@ -24,14 +24,14 @@ estimator_02 = {
 }
 
 final_estimator = {
-    'model_type': 'sklearn.linear_model.LogisticRegression',
+    'model_name': 'sklearn.linear_model.LogisticRegression',
     'model_params': {
         'random_state': config.random_seed
     }
 }
 
 model = {
-    'model_type': 'sklearn.ensemble.StackingClassifier',
+    'model_name': 'sklearn.ensemble.StackingClassifier',
     'model_params': {
         'estimators': [estimator_01, estimator_02],
         'final_estimator': final_estimator

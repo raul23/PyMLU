@@ -6,14 +6,14 @@ from configs import config
 # Warning: Extra-trees should only be used within ensemble methods.
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.tree.ExtraTreeClassifier.html
 base_model = {
-    'model_type': 'sklearn.tree.ExtraTreeClassifier',
+    'model_name': 'sklearn.tree.ExtraTreeClassifier',
     'model_params': {
         'max_depth': 5,
         'random_state': 1
     }
 }
 model = {
-    'model_type': 'sklearn.ensemble.BaggingClassifier',
+    'model_name': 'sklearn.ensemble.BaggingClassifier',
     'model_params': {
         'base_estimator': base_model,
         'n_estimators': 50,

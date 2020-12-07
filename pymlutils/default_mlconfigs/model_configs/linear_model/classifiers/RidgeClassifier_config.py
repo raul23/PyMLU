@@ -5,7 +5,7 @@ from configs import config
 # Classifier using Ridge regression.
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.RidgeClassifier.html
 model = {
-    'model_type': 'sklearn.linear_model.RidgeClassifier',
+    'model_name': 'sklearn.linear_model.RidgeClassifier',
     'model_params': {
         'alpha': 1.0,
         'random_state': config.random_seed

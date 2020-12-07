@@ -5,7 +5,7 @@ from configs import config
 # Example makes use of StandardScaler
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.svm.SVC.html
 model = {
-    'model_type': 'sklearn.svm.SVC',
+    'model_name': 'sklearn.svm.SVC',
     'model_params': {
         'C': 1,  # C > 0
         'kernel': 'rbf',  # {'linear', 'poly', 'rbf', 'sigmoid', 'precomputed'}

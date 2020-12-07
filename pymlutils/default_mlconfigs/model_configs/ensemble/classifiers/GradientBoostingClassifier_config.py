@@ -5,7 +5,7 @@ from configs import config
 # Gradient Boosting for classification.
 # ref.: https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.GradientBoostingClassifier.html
 model = {
-    'model_type': 'sklearn.ensemble.GradientBoostingClassifier',
+    'model_name': 'sklearn.ensemble.GradientBoostingClassifier',
     'model_params': {
         'n_estimators': 100,
         'random_state': config.random_seed
