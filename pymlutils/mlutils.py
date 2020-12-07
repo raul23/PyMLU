@@ -1,13 +1,12 @@
 """Machine learning utilities
 """
 import importlib
-import logging.config
+import logging
 from logging import NullHandler
-
-import numpy as np
 
 from pymlutils import SKLEARN_MODULES
 
+numpy = None
 pandas = None
 
 logger = logging.getLogger(__name__)
@@ -20,8 +19,9 @@ class Dataset:
                  use_custom_data=False, features=None, get_dummies=False,
                  random_seed=0, *args, **kwargs):
         global pandas
-        logger.info("Importing pandas...")
+        logger.info("Importing numpy and pandas...")
         # Slow to import
+        import numpy
         import pandas
         # ------------------
         # Parameters parsing
@@ -75,12 +75,10 @@ class Dataset:
     def _print_data_info(self):
         for data_type in self._data_types:
             X_data, y_data = self.get_data(data_type)
-            if X_data is not None and y_data is not None:
+            if X_data is not None:
                 logger.info(f"X_{data_type} shape: {X_data.shape}")
+            if y_data is not None:
                 logger.info(f"y_{data_type} shape: {y_data.shape}")
-            else:
-                # TODO: debug log
-                pass
 
     def get_data(self, data_type):
         try:
@@ -94,8 +92,8 @@ class Dataset:
     @staticmethod
     def shuffle_dataset(X, y, random_seed=1):
         n_sample = len(X)
-        np.random.seed(random_seed)
-        order = np.random.permutation(n_sample)
+        numpy.random.seed(random_seed)
+        order = numpy.random.permutation(n_sample)
         X = X.loc[order]
         y = y.loc[order]
         return X, y
@@ -177,8 +175,8 @@ class Dataset:
             self.features = train_data.columns.to_list()
         # Remove target from features
         if self.custom_dataset['y_target'] in self.features:
-            logger.warning("Removing the y_target "
-                           f"({self.custom_dataset['y_target']}) from the features")
+            logger.info("Removing the y_target "
+                        f"({self.custom_dataset['y_target']}) from the features")
             self.features.remove(self.custom_dataset['y_target'])
         X = train_data
         self.y_train = train_data[self.custom_dataset['y_target']]
