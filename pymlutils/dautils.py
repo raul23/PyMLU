@@ -1,7 +1,7 @@
 """Data analysis utilities
 """
 import copy
-import logging.config
+import logging
 from logging import NullHandler
 
 from pymlutils.mlutils import Dataset
