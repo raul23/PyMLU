@@ -2,6 +2,7 @@
 """
 import argparse
 import codecs
+import copy
 import glob
 import importlib
 import json
@@ -313,7 +314,7 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
             shutil.copy(fp, dest)
 
 
-def get_config_dict(cfg_type):
+def get_config_dict(cfg_type='main'):
     if cfg_type == 'main':
         cfg_filepath = get_main_config_filepath()
     elif cfg_type == 'log':
@@ -323,19 +324,47 @@ def get_config_dict(cfg_type):
     return load_cfg_dict(cfg_filepath, cfg_type)
 
 
+def get_configs(new_config_dict=None, model_configs=None,
+                          quiet=None, verbose=None, logging_level=None):
+    # Update default config dict
+    cfgs = update_default_config(new_config_dict, model_configs)
+    if quiet is None and cfgs:
+        quiet = cfgs[0]['quiet']
+    if verbose is None and cfgs:
+        verbose = cfgs[0]['verbose']
+    setup_log(default_log=True, quiet=quiet, verbose=verbose,
+              logging_level=logging_level)
+    return cfgs
+
+
 def get_configs_dirpath():
     from mlconfigs import __path__
     return __path__[0]
 
 
+def get_default_config_dict(cfg_type='main'):
+    if cfg_type == 'main':
+        cfg_filepath = get_default_main_config_filepath()
+        get_default_configs_dirpath()
+        cfg_filepath = get_main_config_filepath()
+    elif cfg_type == 'log':
+        cfg_filepath = get_logging_filepath()
+    else:
+        raise ValueError(f"Invalid cfg_type: {cfg_type}")
+    return load_cfg_dict(cfg_filepath, cfg_type)
+
+
 def get_default_configs_dirpath():
-    from pyutils.default_configs import __path__
+    from pymlutils.default_mlconfigs import __path__
     return __path__[0]
 
 
-def get_default_scripts_dirpath():
-    from pyutils.default_scripts import __path__
-    return __path__[0]
+def get_default_logging_filepath():
+    return os.path.join(get_default_configs_dirpath(), 'logging.py')
+
+
+def get_default_main_config_filepath():
+    return os.path.join(get_default_configs_dirpath(), 'config.py')
 
 
 def get_default_model_configs_dirpath():
@@ -343,21 +372,9 @@ def get_default_model_configs_dirpath():
     return os.path.join(default_configs_dirpath, MODEL_CONFIGS_DIRNAME)
 
 
-def get_main_config_filepath():
-    return os.path.join(get_configs_dirpath(), 'config.py')
-
-
-def get_model_configs_dirpath():
-    # Path to the model_configs directory in the current working directory
-    return os.path.join(os.getcwd(), CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME)
-
-
-def get_logging_filepath():
-    return os.path.join(get_configs_dirpath(), 'logging.py')
-
-
-def remove_ext(filename):
-    return os.path.splitext(filename)[0]
+def get_default_scripts_dirpath():
+    from pymlutils.default_mlmodules import __path__
+    return __path__[0]
 
 
 # TODO: explain cases
@@ -383,6 +400,14 @@ def get_logger_name(module__name__, module___file__, package_name=None):
         # e.g. importing mlutils from train_models.py
         logger_name = module__name__
     return logger_name
+
+
+def get_logging_filepath():
+    return os.path.join(get_configs_dirpath(), 'logging.py')
+
+
+def get_main_config_filepath():
+    return os.path.join(get_configs_dirpath(), 'config.py')
 
 
 # TODO: use file_pattern (regex)
@@ -436,6 +461,11 @@ def get_model_config_filepaths(root, categories=None, model_type=None,
     return filepaths
 
 
+def get_model_configs_dirpath():
+    # Path to the model_configs directory in the current working directory
+    return os.path.join(os.getcwd(), CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME)
+
+
 def get_settings(conf, cfg_type):
     if cfg_type == 'log':
         return conf['logging']
@@ -456,12 +486,16 @@ def get_settings(conf, cfg_type):
 
 def init_log(module__name__, module___file__=None, package_name=None):
     if module___file__:
-        logger = logging.getLogger(get_logger_name(module__name__, module___file__,
-                                                   package_name))
+        logger_ = logging.getLogger(get_logger_name(module__name__,
+                                                    module___file__,
+                                                    package_name))
+    elif module__name__.count('.') > 1:
+        logger_name = '.'.join(module__name__.split('.')[-2:])
+        logger_ = logging.getLogger(logger_name)
     else:
-        logger = logging.getLogger(module__name__)
-    logger.addHandler(NullHandler())
-    return logger
+        logger_ = logging.getLogger(module__name__)
+    logger_.addHandler(NullHandler())
+    return logger_
 
 
 def is_substring(string, substrings, lower=True):
@@ -509,9 +543,6 @@ def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
         msgs += f"\n({i}){spaces}{module}"
         # Path to the model configs folder in the working directory
         module_dirpath = os.path.join(get_model_configs_dirpath(), module)
-        if module  == 'ensemble':
-            import ipdb
-            ipdb.set_trace()
         if not os.path.exists(module_dirpath):
             module_dirpath = os.path.join(get_default_model_configs_dirpath(),
                                           module)
@@ -632,6 +663,23 @@ def mkdir(path, widths=(1, 1)):
         os.mkdir(path)
 
 
+def process_model_names(model_names):
+    processed_names = []
+    for model_name in model_names:
+        abbr_dict = list_model_info(print_msgs=False)
+        model_name = model_name.lower()
+        if abbr_dict.get(model_name):
+            processed_names.append(abbr_dict.get(model_name))
+        else:
+            processed_names.append(model_name)
+    return processed_names
+
+
+# TODO: not used
+def remove_ext(filename):
+    return os.path.splitext(filename)[0]
+
+
 def run_cmd(cmd):
     """Run a shell command with arguments.
 
@@ -674,19 +722,6 @@ def run_cmd(cmd):
         return result
 
 
-def process_model_names(model_names):
-    processed_names = []
-    for model_name in model_names:
-        abbr_dict = list_model_info(print_msgs=False)
-        model_name = model_name.lower()
-        if abbr_dict.get(model_name):
-            processed_names.append(abbr_dict.get(model_name))
-        else:
-            processed_names.append(model_name)
-    return processed_names
-
-
-
 def set_logging_level(log_dict, level='DEBUG'):
     keys = ['handlers', 'loggers']
     for k in keys:
@@ -694,17 +729,27 @@ def set_logging_level(log_dict, level='DEBUG'):
             val['level'] = level
 
 
-def setup_log(quiet=False, verbose=False):
+def setup_log(default_log=False, quiet=False, verbose=False,
+              logging_level=None):
     package_path = os.getcwd()
-    log_filepath = get_logging_filepath()
+    if default_log:
+        log_filepath = get_default_logging_filepath()
+        main_cfg_msg = f'Default config path: {get_default_main_config_filepath()}'
+        main_log_msg = f'Default logging path: {log_filepath}'
+    else:
+        log_filepath = get_logging_filepath()
+        main_cfg_msg = f"Main config path: {get_main_config_filepath()}"
+        main_log_msg = f'Logging path: {log_filepath}'
     # Get logging cfg dict
     log_dict = load_cfg_dict(log_filepath, cfg_type='log')
     # NOTE: if quiet and verbose are both activated, only quiet will have an effect
     # TODO: get first cfg_dict to setup log (same in train_models.py)
     if not quiet:
-        # Load logging config dict
         if verbose:
             set_logging_level(log_dict)
+        if logging_level:
+            set_logging_level(log_dict, level=logging_level)
+        # Load logging config dict
         logging.config.dictConfig(log_dict)
     # =============
     # Start logging
@@ -713,5 +758,20 @@ def setup_log(quiet=False, verbose=False):
     logger.info("Verbose option {}".format(
         "enabled" if verbose else "disabled"))
     logger.debug("Working directory: {}".format(package_path))
-    logger.debug(f"Main config path: {get_main_config_filepath()}")
-    logger.debug(f"Logging path: {log_filepath}")
+    logger.debug(main_cfg_msg)
+    logger.debug(main_log_msg)
+
+
+def update_default_config(new_data, model_configs=None):
+    cfg_dicts = []
+    # Get default main config dict
+    default_cfg = get_default_config_dict()
+    # Update default config dict wth new_data
+    default_cfg.update(new_data)
+    # Update default config dict with model_config_dicts
+    for m_cfg in model_configs:
+        # TODO: copy?
+        default_cfg_copy = copy.deepcopy(default_cfg)
+        default_cfg_copy.update({'model': m_cfg})
+        cfg_dicts.append(default_cfg_copy)
+    return cfg_dicts
