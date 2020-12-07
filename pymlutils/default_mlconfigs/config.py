@@ -67,7 +67,7 @@ test_isnull = True
 # ML model
 # --------
 model = {
-    'model_type': 'sklearn.ensemble.RandomForestClassifier',
+    'model_name': 'sklearn.ensemble.RandomForestClassifier',
     'model_params': {
         'n_estimators': 100,
         'max_depth': 5,
