@@ -18,7 +18,7 @@ class Dataset:
     def __init__(self, builtin_dataset=None, custom_dataset=None,
                  use_custom_data=False, features=None, get_dummies=False,
                  random_seed=0, *args, **kwargs):
-        global pandas
+        global numpy, pandas
         logger.info("Importing numpy and pandas...")
         # Slow to import
         import numpy
