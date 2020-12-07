@@ -199,29 +199,29 @@ class Dataset:
             self.X_test = X_test
 
 
-def get_model(model_type, model_params, scale_input=False):
+def get_model(model_name, model_params, scale_input=False):
     # TODO: eventually check verbose and quiet (need access to log_dict)
-    logger.debug(f"Get model: {model_type}")
-    model_type_split = model_type.split('.')
-    assert len(model_type_split), \
-        "There should be three components to the model type. Only " \
-        f"{len(model_type)} provided: {model_type}"
-    sklearn_module = '.'.join(model_type_split[:2])
-    module_name = model_type_split[1]
-    model_name = model_type_split[2]
+    logger.debug(f"Get model: {model_name}")
+    model_name_split = model_name.split('.')
+    assert len(model_name_split), \
+        "There should be three components to the model name. Only " \
+        f"{len(model_name)} provided: {model_name}"
+    sklearn_module = '.'.join(model_name_split[:2])
+    module_name = model_name_split[1]
+    model_classname = model_name_split[2]
     if module_name in SKLEARN_MODULES:
-        logger.info(f"Importing {model_type}...")
+        logger.info(f"Importing {model_name}...")
         module = importlib.import_module(sklearn_module)
     else:
-        raise TypeError(f"The model type is invalid: {model_type}")
-    if model_name == 'HistGradientBoostingClassifier':
+        raise TypeError(f"The model name is invalid: {model_name}")
+    if model_classname == 'HistGradientBoostingClassifier':
         # Note: this estimator is still experimental for now: To use it, you need to
         #       explicitly import enable_hist_gradient_boosting
         # Ref.: https://bit.ly/3ldqWKp
         exp_module_name = 'sklearn.experimental.enable_hist_gradient_boosting'
         logger.info(f"Importing experimental module: {exp_module_name}")
         importlib.import_module(exp_module_name)
-    model_class = getattr(module, model_name)
+    model_class = getattr(module, model_classname)
     logger.debug(f"Model imported: {model_class}")
     # Can either be base_estimator or estimator (equivalent)
     base_estimator_cfg = model_params.get('base_estimator')
@@ -267,5 +267,4 @@ def get_model(model_type, model_params, scale_input=False):
 # TODO: from example.py
 def train_models(new_config_dict=None, model_configs=None, quiet=None,
                  verbose=None, logging_level=None):
-    cfgs = get_configs(**locals())
-    train(cfgs)
+    train(get_configs(**locals()))
