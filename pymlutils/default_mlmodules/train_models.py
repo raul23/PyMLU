@@ -7,12 +7,10 @@ logger = ge.init_log(__name__)
 
 
 def train(configs):
-    if not isinstance(configs, list):
-        configs = [configs]
     # ---------
     # Load data
     # ---------
-    data = ml.Dataset(**configs[0])
+    data = ml.Dataset(*configs[0])
 
     # For each model, get its config dict
     for i, cfg_dict in enumerate(configs, start=1):
