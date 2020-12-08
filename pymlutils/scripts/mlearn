@@ -2,12 +2,51 @@
 """TODO
 """
 import argparse
+import sys
 
 import pymlutils
-from pymlutils.genutils import (get_config_dict, init_log,
-                                setup_log)
+from pymlutils.genutils import (dict_to_bunch, get_config_dict,
+                                get_default_config_dict, init_log,
+                                list_model_info, setup_log)
 
 logger = init_log(__name__, __file__)
+
+
+def is_cwd_ready():
+    # Check the current working directory if it has already been initialized
+    # TODO: is it robust enough?
+    try:
+        cwd_ready = True
+        from mlconfigs import config
+    except ImportError:
+        cwd_ready = False
+    return cwd_ready
+
+
+# sub-command functions
+def parse_list_args(args, cwd_ready):
+    # ------------------------------------
+    # -l : list model categories and names
+    # ------------------------------------
+    if args.list_categories:
+        if cwd_ready:
+            list_model_info(show_all=False)
+        else:
+            print("The current working directory is not initialized")
+
+    if args.list_models:
+        if cwd_ready:
+            list_model_info()
+        else:
+            print("The current working directory is not initialized")
+
+    if args.list_all_categories:
+        list_model_info(cwd_ready=False, show_all=False)
+
+    if args.list_all_models:
+        list_model_info(cwd_ready=False)
+
+    return 0
 
 
 def setup_argparser():
@@ -22,130 +61,136 @@ def setup_argparser():
     # Setup the parser
     parser = argparse.ArgumentParser(
         description='''\
-Script for initializing the current working directory with the configuration
-folder and the modules for doing data exploration and training models (-a*,
--A).
+This program can perform the following tasks:
+* initialize the cwd with a configuration folder and modules (init)
+* perform data exploration (data)
+* edit a file (edit)
+* list the installed model categories and names (list) 
+* train models (train)
 
-Once the current working directory is initialized, the following tasks can
-be performed:
-* perform data exploration (-d)
-* edit a file (-e)
-* list the installed model categories and names (-l, -L)
-* train models (-t, -T)
-
-NOTE: the {-a*, -A} arguments (adding model configuration files) can be run in
-combination with any of the other tasks and in that case, they are run first
+Each of these tasks is associated with a subcommand (name within
+parentheses).
 ''',
         formatter_class=argparse.RawDescriptionHelpFormatter)
     # ===============
     # General options
     # ===============
     # TODO: package name too? instead of program name (e.g. train_models.py)
-    parser.add_argument('--version', action='version',
+    parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s v{}'.format(pymlutils.__version__))
-    # Group arguments that are closely related
-    # =======================
-    # Add configuration files
-    # =======================
-    add_group = parser.add_argument_group('Add configuration files to the '
-                                          'current working directory')
-    add_group.add_argument(
-        '-a', '--add-categories', dest='add_categories', nargs='+',
-        metavar='CATEGORY',
+    subparsers = parser.add_subparsers(
+        title='subcommands', description=None, dest='subparser_name',
+        help=None)
+    # ====================================
+    # Initialize current working directory
+    # ====================================
+    # create the parser for the "init" command
+    parser_init = subparsers.add_parser('init',
+        help='''Initialize the current working directory with the configuration
+        folder and the modules for doing data exploration and training models.
+        If no other arguments is provided then all configuration files will be
+        generated.''')
+    parser_init.add_argument(
+        '-c', dest='init_categories', nargs='+', metavar='CATEGORY',
         help=f'''Categories of ML models for which configuration files will be
         generated in the current working directory. These correspond to sklearn
-        packages of ML models, e.g. ensemble or linear_model. Use the -s
-        argument to show a complete list of all the supported categories of ML
-        models found in {pymlutils.__name__}.''')
-    add_group.add_argument(
-        '-A', '--add-models', dest='add_models', nargs='+', metavar='MODEL',
+        packages of ML models, e.g. ensemble or linear_model. Use the
+        subcommand 'list -C' to show a complete list of all the supported
+        categories of ML models found in {pymlutils.__name__}.''')
+    parser_init.add_argument(
+        '-m', dest='init_models', nargs='+', metavar='MODEL',
         help=f'''Names of ML models for which configuration files will be
-        generated in the current working directory. These correspond to
-        sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. Use the
-        -S argument to show a complete list of all the supported ML models
-        found in {pymlutils.__name__}. It also accepts model name abbreviations
-        (e.g. ABC for AdaBoostClassifier) as shown in the list.''')
-    add_group.add_argument(
-        '--add-type', dest='add_type', choices=['clf', 'reg'],
-        default=None,
+        generated in the current working directory. These correspond to sklearn
+        classes of ML models, e.g. SVC or AdaBoostClassifier. Use the
+        subcommand 'list -M' to show a complete list of all the supported ML
+        models found in {pymlutils.__name__}. It also accepts model name
+        abbreviations (e.g. ABC for AdaBoostClassifier) as shown in the list.
+        ''')
+    parser_init.add_argument(
+        '-t', dest='init_type', choices=['clf', 'reg'], default=None,
         help='''The type of model for which configuration files will be
         generated in the current working directory where 'clf' is for
         classifier and 'reg' is for regressor.''')
-    add_group.add_argument(
-        '-o', '--overwrite', dest='overwrite', action='store_true',
+    parser_init.add_argument(
+        '-o', dest='overwrite', action='store_true',
         help='''Overwrite existing files and folders generated from a previous
-        run of the script.''')
+        run of the program.''')
     # ================
     # Data exploration
     # ================
-    data_group = parser.add_argument_group('Data exploration')
-    data_group.add_argument(
-        '-d', '--data', action='store_true',
+    # create the parser for the "data" command
+    parser_data = subparsers.add_parser('data',
         help='''Perform data exploration of a dataset as defined in the main
         configuration file (config.py).''')
     # ==========
     # Edit files
     # ==========
-    edit_group = parser.add_argument_group('Edit a configuration file or script')
-    edit_group.add_argument(
-        '-e', '--edit', dest='filename', default='main',
+    # create the parser for the "edit" command
+    parser_edit = subparsers.add_parser(
+        'edit', help='''Edit a configuration file or module.''')
+    parser_edit.add_argument(
+        '-f', dest='filename', default='main', required=True,
         help='''Name of a file to edit which can either be the main
         configuration file ('config'), logging configuration file ('log'), a
         particular model configuration file (e.g. LogisticRegression) or a
         module ({'explore_data', 'train_models'}). It also accepts model name
-        abbreviations as shown in the list of ML models (-L).''')
-    edit_group.add_argument(
-        '--app', dest='app', metavar='NAME',
+        abbreviations as shown in the list of ML models ('list -m').''')
+    parser_edit.add_argument(
+        '--app', metavar='NAME',
+        required='-e' in sys.argv or '--edit' in sys.argv,
         help='''Name of the application to use for editing the file. If no name
         is given, then the default application for opening this type of file
         will be used.''')
     # ===============================
     # List model categories and names
     # ===============================
-    list_group = parser.add_argument_group('List model categories and names')
-    list_group.add_argument(
-        '-l', '--list-categories', dest='list_categories',
-        action='store_true',
+    # create the parser for the "list" command
+    parser_list = subparsers.add_parser(
+        'list', help='''List model categories and names.''')
+    parser_list.add_argument(
+        '-c', dest='list_categories', action='store_true',
         help='''Show a list of all the categories of ML models found in the
-            CURRENT WORKING DIRECTORY. Then the program exits.''')
-    list_group.add_argument(
-        '-L', '--list-models', dest='list_models', action='store_true',
+        CURRENT WORKING DIRECTORY.''')
+    parser_list.add_argument(
+        '-m', dest='list_models', action='store_true',
         help='''Show a list of all the ML models found in the CURRENT WORKING
-        DIRECTORY. Then the program exits.''')
-    list_group.add_argument(
-        '-s', '--list-all-categories', dest='list_all_categories',
+        DIRECTORY.''')
+    parser_list.add_argument(
+        '-C', dest='list_all_categories',
         action='store_true',
-        help=f'''Show a list of all the supported categories of ML models found
-        in {pymlutils.__name__}. Then the program exits.''')
-    list_group.add_argument(
-        '-S', '--list-all-models', dest='list_all_models',
+        help=f'''Show a list of all the SUPPORTED categories of ML models found
+        in {pymlutils.__name__}.''')
+    parser_list.add_argument(
+        '-M', dest='list_all_models',
         action='store_true',
-        help=f'''Show a list of all the supported ML models found in
-        {pymlutils.__name__}. Then the program exits.''')
+        help=f'''Show a list of all the SUPPORTED ML models found in
+        {pymlutils.__name__}.''')
+    parser_list.set_defaults(func=parse_list_args)
     # ============
     # Train models
     # ============
-    add_group = parser.add_argument_group('Train models')
-    add_group.add_argument(
-        '-t', '--train-categories', dest='train_categories', nargs='+',
+    # create the parser for the "edit" command
+    parser_train = subparsers.add_parser('train', help='''Train models''')
+    parser_train.add_argument(
+        '-c', dest='train_categories', nargs='+',
         metavar='CATEGORY',
         help='''Categories of ML models that will be trained. These correspond
         to sklearn packages of ML models, e.g. ensemble or linear_model. Use
-        the -l argument to show a list of the categories of ML models found in
-        the current working directory.''')
-    add_group.add_argument(
-        '-T', '--train-models', dest='train_models', nargs='+',
+        the subcommand 'list c' to show a list of the categories of ML models
+        found in the current working directory.''')
+    parser_train.add_argument(
+        '-m', dest='train_models', nargs='+',
         metavar='MODEL',
         help='''Names of ML models that will be trained. These correspond to
         sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. It also
         accepts model name abbreviations as shown in the list of ML models
-        (-L).
-        ''')
-    add_group.add_argument(
-        '--train-type', dest='train_type', choices=['clf', 'reg'],
+        ('list m').''')
+    parser_train.add_argument(
+        '-t', dest='train_type', choices=['clf', 'reg'], required=True,
         default=None,
         help='''The type of models that will be trained where 'clf' is for
         classifier and 'reg' is for regressor.''')
+    # TODO: train_type is shown as optional arguments even though it is required
     return parser
 
 
@@ -154,33 +199,39 @@ def main():
     args = parser.parse_args()
 
     # Check the current working directory if it has already been initialized
-    # TODO: is it robust enough?
+    cwd_ready = is_cwd_ready()
+    retval = args.func(args, cwd_ready)
+    return retval
+
+    # ------------------------------------
+    # -l : list model categories and names
+    # ------------------------------------
     import ipdb
     ipdb.set_trace()
-    try:
-        cwd_ready = True
-        from mlconfigs import config
-    except ImportError:
-        cwd_ready = False
 
     # To avoid logging info before listing the categories and model names
 
     # -------------------------------------
     # Get config filepath and setup logging
     # -------------------------------------
-    if cwd_ready:
+    if use_default_cfgs:
+        # Get default config dict
+        main_cfg_dict = get_default_config_dict('main')
+    else:
         # Get config dict
         main_cfg_dict = get_config_dict('main')
-    else:
-        # Get default config dict
-        main_cfg_dict = None
-    setup_log(main_cfg_dict['quiet'], main_cfg_dict['verbose'])
 
-    # from mlmodules import train_models
-    # train_models.train(main_cfg_dict)
+    import ipdb
+    ipdb.set_trace()
 
-    # from mlmodules import explore_data
-    # explore_data.explore(main_cfg_dict)
+    main_cfg = dict_to_bunch(main_cfg_dict)
+    setup_log(use_default_cfgs, main_cfg.quiet, main_cfg.verbose)
+
+    from mlmodules import train_models
+    train_models.train([main_cfg])
+
+    from mlmodules import explore_data
+    explore_data.explore(main_cfg)
 
 
 if __name__ == '__main__':
