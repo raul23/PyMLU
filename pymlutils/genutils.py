@@ -528,7 +528,7 @@ def is_substring(string, substrings, lower=True):
 
 
 def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msgs=True):
-    msgs = ""
+    msgs = []
     abbr_dict = {}
     default_abbreviations = {
         'CategoricalNB': 'CatNB',
@@ -548,10 +548,11 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
     else:
         title = "***List of model categories***"
     if cwd_ready:
-        title2 = "\nSource: current working directory\n"
+        title2 = "Source: current working directory"
     else:
-        title2 = f"\nSource: {pymlutils.__name__}\n"
-    msgs += title + title2
+        title2 = f"Source: {pymlutils.__name__}"
+    msgs.append(title)
+    msgs.append(title2)
     acronyms = []
     module_found = False
     for i, module in enumerate(SKLEARN_MODULES, start=1):
@@ -565,7 +566,7 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
         if os.path.exists(module_dirpath):
             spaces = '  ' if i < 10 else ' '
             # e.g. (1)  ensemble
-            msgs += f"\n({i}){spaces}{module}"
+            msgs.append(f"\n({i}){spaces}{module}")
             module_found = True
         else:
             continue
@@ -588,7 +589,7 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
                         if i == 0:
                             # i.e. classifiers or regressors
                             model_type = os.path.basename(path)
-                            msgs += f"\n\t* {model_type}"
+                            msgs.append(f"\t* {model_type}")
 
                         def get_acronym(compound_word):
                             return ''.join([l for l in compound_word if not l.islower()])
@@ -603,15 +604,28 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
                                 i += 1
                             acronyms.append(acronym)
                             short_name = acronym
-                        msgs += f"\n\t    - {model_name} [{short_name}]"
+                        msgs.append(f"\t    - {model_name} [{short_name}]")
                         abbr_dict.setdefault(short_name.lower(), model_name)
     if show_all and module_found:
-        msgs += "\n\nNotes:\n- Beside each number in parentheses, it is the " \
-                "model category\n- Between brackets, it is the model name " \
-                "abbreviation\n"
-        msgs += title2
+        msg = "\nNotes:\n- Beside each number in parentheses, it is the " \
+              "model category\n- Between brackets, it is the model name " \
+              "abbreviation\n"
+        msgs.append(msg)
+        msgs.append(title2)
     if print_msgs:
-        print(msgs)
+        idx_start = 0
+        n_lines = 25
+        while True:
+            group_msgs = msgs[idx_start:idx_start+n_lines]
+            idx_start += n_lines
+            for msg in group_msgs:
+                print(msg)
+            if idx_start >= len(msgs):
+                break
+            input("Press ENTER to continue...")
+            # Ref.: https://stackoverflow.com/a/52590238/14664104
+            sys.stdout.write('\x1b[1A')
+            sys.stdout.write('\x1b[2K')
     return abbr_dict
 
 
