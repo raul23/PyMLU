@@ -1,11 +1,12 @@
 """Machine learning utilities
 """
+import copy
 import importlib
 import logging
 from logging import NullHandler
 
 from pymlutils import SKLEARN_MODULES
-from pymlutils.genutils import get_configs
+from pymlutils.genutils import dict_to_bunch, get_configs
 from pymlutils.default_mlmodules.train_models import train
 
 numpy = None
@@ -19,40 +20,53 @@ class Dataset:
 
     def __init__(self, builtin_dataset=None, custom_dataset=None,
                  use_custom_data=False, features=None, get_dummies=False,
-                 random_seed=0, *args, **kwargs):
+                 random_seed=0, config=None, *args, **kwargs):
+        if config:
+            locals_dict = locals()
+            cfg = {}
+            for k, v in list(config.items()):
+                if k not in locals_dict:
+                    del config[k]
+            cfg = config
+        else:
+            locals_dict = locals().copy()
+            del locals_dict['self']
+            if locals_dict.get('ipdb'):
+                del locals_dict['ipdb']
+            cfg = dict_to_bunch(locals_dict)
         global numpy, pandas
         logger.info("Importing numpy and pandas...")
-        # Slow to import
+        # Lazy import
         import numpy
         import pandas
         # ------------------
         # Parameters parsing
         # ------------------
-        assert builtin_dataset or custom_dataset, \
+        assert cfg.builtin_dataset or cfg.custom_dataset, \
             "No dataset specified. You need to specify a builtin or custom " \
             "dataset."
-        self.random_seed = random_seed
-        if use_custom_data:
-            assert custom_dataset, \
+        self.random_seed = cfg.random_seed
+        if cfg.use_custom_data:
+            assert cfg.custom_dataset, \
                 "use_custom_data=True but no custom dataset specified"
-            self.custom_dataset = custom_dataset
+            self.custom_dataset = cfg.custom_dataset
             self.builtin_dataset = None
-            assert custom_dataset['train_filepath'], \
+            assert cfg.custom_dataset.train_filepath, \
                 "Train filepath is missing"
-            assert custom_dataset['test_filepath'], \
+            assert cfg.custom_dataset.test_filepath, \
                 "Test filepath is missing"
-            logger.debug(f"y_target = {self.custom_dataset['y_target']}")
+            logger.debug(f"y_target = {self.custom_dataset.y_target}")
         else:
-            assert builtin_dataset, "No builtin custom dataset specified"
-            self.builtin_dataset = builtin_dataset
+            assert cfg.builtin_dataset, "No builtin custom dataset specified"
+            self.builtin_dataset = cfg.builtin_dataset
             self.custom_dataset = None
-        if features:
-            logger.debug(f"Using only these features: {features}")
-            self.features = features
+        if cfg.features:
+            logger.debug(f"Using only these features: {cfg.features}")
+            self.features = cfg.features
         else:
             logger.debug("Using all features")
             self.features = None
-        self.get_dummies = get_dummies
+        self.get_dummies = cfg.get_dummies
         # ------------
         # Data loading
         # ------------
@@ -62,7 +76,7 @@ class Dataset:
         self.X_test = None
         self.y_test = None
         self._data_types = ['train', 'valid', 'test']
-        if use_custom_data:
+        if cfg.use_custom_data:
             self._process_custom_dataset()
         else:
             self._process_builtin_dataset()
@@ -128,24 +142,23 @@ class Dataset:
         self.X_test = pandas.get_dummies(self.X_test)
 
     def _process_builtin_dataset(self):
-        # Slow to import
+        # Lazy import
         from sklearn import datasets
         # ------------
         # Load dataset
         # ------------
         # Load train data
-        logger.info(f"Loading dataset {self.builtin_dataset['name']}...")
-        if self.builtin_dataset['name'] == 'iris':
+        logger.info(f"Loading dataset {self.builtin_dataset.name}...")
+        if self.builtin_dataset.name == 'iris':
             iris = datasets.load_iris()
             self.builtin_dataset.update(iris)
             X = pandas.DataFrame(self.builtin_dataset.pop('data'))
-            X.columns = self.builtin_dataset['feature_names']
+            X.columns = self.builtin_dataset.feature_names
             y = pandas.Series(self.builtin_dataset.pop('target'))
-            # y.columns = ['iris_species']
             y.name = 'iris_species'
         else:
             raise ValueError("Dataset not supported: "
-                             f"{self.builtin_dataset['name']}")
+                             f"{self.builtin_dataset.name}")
         # ------------------
         # Features selection
         # ------------------
@@ -156,14 +169,14 @@ class Dataset:
         # --------------
         # Randomize data
         # --------------
-        if self.builtin_dataset['shuffle_data']:
+        if self.builtin_dataset.shuffle_data:
             logger.debug("Shuffling dataset")
             X, y = self.shuffle_dataset(X, y, self.random_seed)
         # -----------
         # Data splits
         # -----------
         self.X_train, self.y_train, self.X_test, self.y_test = self.split_data(
-            X, y, self.builtin_dataset['data_prop'])
+            X, y, self.builtin_dataset.data_prop)
 
     def _process_custom_dataset(self):
         # ------------
@@ -171,21 +184,21 @@ class Dataset:
         # ------------
         # Load train data
         logger.info("Loading training data...")
-        logger.debug(f"Train filepath: {self.custom_dataset['train_filepath']}")
-        train_data = pandas.read_csv(self.custom_dataset['train_filepath'])
+        logger.debug(f"Train filepath: {self.custom_dataset.train_filepath}")
+        train_data = pandas.read_csv(self.custom_dataset.train_filepath)
         if not self.features:
             self.features = train_data.columns.to_list()
         # Remove target from features
-        if self.custom_dataset['y_target'] in self.features:
+        if self.custom_dataset.y_target in self.features:
             logger.info("Removing the y_target "
-                        f"({self.custom_dataset['y_target']}) from the features")
-            self.features.remove(self.custom_dataset['y_target'])
+                        f"({self.custom_dataset.y_target}) from the features")
+            self.features.remove(self.custom_dataset.y_target)
         X = train_data
-        self.y_train = train_data[self.custom_dataset['y_target']]
+        self.y_train = train_data[self.custom_dataset.y_target]
         # Load test data
         logger.info("Loading test data...")
-        logger.debug(f"Test filepath: {self.custom_dataset['test_filepath']}")
-        X_test = pandas.read_csv(self.custom_dataset['test_filepath'])
+        logger.debug(f"Test filepath: {self.custom_dataset.test_filepath}")
+        X_test = pandas.read_csv(self.custom_dataset.test_filepath)
         # ------------------
         # Features selection
         # ------------------
@@ -199,8 +212,14 @@ class Dataset:
             self.X_test = X_test
 
 
-def get_model(model_name, model_params, scale_input=False):
+def get_model(model_config=None, model_name=None, model_params=None,
+              scale_input=False):
     # TODO: eventually check verbose and quiet (need access to log_dict)
+    if not model_config:
+        if not model_name:
+            raise ValueError("model_name missing")
+        if not model_params:
+            raise ValueError("model_params missing")
     logger.debug(f"Get model: {model_name}")
     model_name_split = model_name.split('.')
     assert len(model_name_split), \
@@ -252,7 +271,7 @@ def get_model(model_name, model_params, scale_input=False):
         # Only the ensemble method, e.g. RandomForestClassifier
         model = model_class(**model_params)
     if scale_input:
-        # Slow to import
+        # Lazy import
         from sklearn.pipeline import make_pipeline
         from sklearn.preprocessing import StandardScaler
         """
