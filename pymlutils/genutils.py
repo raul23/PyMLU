@@ -16,9 +16,10 @@ import warnings
 from collections import OrderedDict
 from logging import NullHandler
 from runpy import run_path
+from types import SimpleNamespace
 from warnings import warn
 
-import pyutils
+import pymlutils
 from pymlutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
                        SKLEARN_MODULES)
 # TODO: call function
@@ -29,11 +30,6 @@ default_configs_dirpath = default_configs_dirpath[0]
 # Ref.: https://stackoverflow.com/a/26433913/14664104
 def warning_on_one_line(message, category, filename, lineno, line=None):
     return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
-
-
-# TODO: remove?
-def get_short_logger_name(name):
-    return '.'.join(name.split('.')[-2:])
 
 
 warnings.formatwarning = warning_on_one_line
@@ -226,7 +222,7 @@ class ConfigBoilerplate:
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         # TODO: package name too? instead of program name (e.g. train_models.py)
         parser.add_argument("--version", action='version',
-                            version='%(prog)s v{}'.format(pyutils.__version__))
+                            version='%(prog)s v{}'.format(pymlutils.__version__))
         return parser
 
     @staticmethod
@@ -251,7 +247,7 @@ class ConfigBoilerplate:
             formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         # TODO: package name too? instead of program name (e.g. train_models.py)
         parser.add_argument("--version", action='version',
-                            version='%(prog)s v{}'.format(pyutils.__version__))
+                            version='%(prog)s v{}'.format(pymlutils.__version__))
         parser.add_argument(
             "-l", "--list-categories", dest="list_categories", action='store_true',
             help='''Show a list of all the supported ML model categories. Then
@@ -290,7 +286,7 @@ class ConfigBoilerplate:
         # =============
         # Start logging
         # =============
-        logger.info("Running {} v{}".format(pyutils.__name__, pyutils.__version__))
+        logger.info("Running {} v{}".format(pymlutils.__name__, pymlutils.__version__))
         # logger.info("Using the dataset: {}".format(self._package_name))
         logger.info("Verbose option {}".format(
             "enabled" if self.cfg_dicts[0]['verbose'] else "disabled"))
@@ -314,6 +310,24 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
             shutil.copy(fp, dest)
 
 
+def dict_to_bunch(adict):
+    # Lazy import
+    from sklearn.utils import Bunch
+
+    def bunchi(item):
+        b = Bunch()
+        b.update(item)
+        return b
+
+    return json.loads(json.dumps(adict), object_hook=lambda item: bunchi(item))
+
+
+# Ref.: https://bit.ly/3qMjJF8
+def dict_to_namespace(adict):
+    return json.loads(json.dumps(adict),
+                      object_hook=lambda item: SimpleNamespace(**item))
+
+
 def get_config_dict(cfg_type='main'):
     if cfg_type == 'main':
         cfg_filepath = get_main_config_filepath()
@@ -332,7 +346,7 @@ def get_configs(new_config_dict=None, model_configs=None,
         quiet = cfgs[0]['quiet']
     if verbose is None and cfgs:
         verbose = cfgs[0]['verbose']
-    setup_log(default_log=True, quiet=quiet, verbose=verbose,
+    setup_log(use_default_log=True, quiet=quiet, verbose=verbose,
               logging_level=logging_level)
     return cfgs
 
@@ -345,10 +359,8 @@ def get_configs_dirpath():
 def get_default_config_dict(cfg_type='main'):
     if cfg_type == 'main':
         cfg_filepath = get_default_main_config_filepath()
-        get_default_configs_dirpath()
-        cfg_filepath = get_main_config_filepath()
     elif cfg_type == 'log':
-        cfg_filepath = get_logging_filepath()
+        cfg_filepath = get_default_logging_filepath()
     else:
         raise ValueError(f"Invalid cfg_type: {cfg_type}")
     return load_cfg_dict(cfg_filepath, cfg_type)
@@ -515,7 +527,7 @@ def is_substring(string, substrings, lower=True):
     return substring_found
 
 
-def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
+def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msgs=True):
     msgs = ""
     abbr_dict = {}
     default_abbreviations = {
@@ -532,20 +544,31 @@ def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
     else:
         abbreviations = default_abbreviations.update(abbreviations)
     if show_all:
-        title = "***List of model categories and the associated ML models***"
+        title = "***List of model categories and names***"
     else:
         title = "***List of model categories***"
-    msgs += title
+    if cwd_ready:
+        title2 = "\nSource: current working directory\n"
+    else:
+        title2 = f"\nSource: {pymlutils.__name__}\n"
+    msgs += title + title2
     acronyms = []
+    module_found = False
     for i, module in enumerate(SKLEARN_MODULES, start=1):
-        spaces = '  ' if i < 10 else ' '
-        # e.g. (1)  ensemble
-        msgs += f"\n({i}){spaces}{module}"
-        # Path to the model configs folder in the working directory
-        module_dirpath = os.path.join(get_model_configs_dirpath(), module)
-        if not os.path.exists(module_dirpath):
+        if cwd_ready:
+            # Path to the model configs folder in the working directory
+            module_dirpath = os.path.join(get_model_configs_dirpath(), module)
+        else:
+            # Path to the default model configs folder
             module_dirpath = os.path.join(get_default_model_configs_dirpath(),
                                           module)
+        if os.path.exists(module_dirpath):
+            spaces = '  ' if i < 10 else ' '
+            # e.g. (1)  ensemble
+            msgs += f"\n({i}){spaces}{module}"
+            module_found = True
+        else:
+            continue
         if show_all:
             # For each sklearn module, print its associated model names
             # Get all python files (model config files) under the sklearn module directory
@@ -582,10 +605,11 @@ def list_model_info(show_all=True, abbreviations=None, print_msgs=True):
                             short_name = acronym
                         msgs += f"\n\t    - {model_name} [{short_name}]"
                         abbr_dict.setdefault(short_name.lower(), model_name)
-    if show_all:
+    if show_all and module_found:
         msgs += "\n\nNotes:\n- Beside each number in parentheses, it is the " \
                 "model category\n- Between brackets, it is the model name " \
                 "abbreviation\n"
+        msgs += title2
     if print_msgs:
         print(msgs)
     return abbr_dict
@@ -663,6 +687,20 @@ def mkdir(path, widths=(1, 1)):
         os.mkdir(path)
 
 
+def namespace_to_dict(ns):
+    if isinstance(ns, SimpleNamespace):
+        adict = vars(ns)
+    else:
+        adict = ns
+    for k, v in adict.items():
+        if isinstance(v, SimpleNamespace):
+            v = vars(v)
+            adict[k] = v
+        if isinstance(v, dict):
+            namespace_to_dict(v)
+    return adict
+
+
 def process_model_names(model_names):
     processed_names = []
     for model_name in model_names:
@@ -729,10 +767,10 @@ def set_logging_level(log_dict, level='DEBUG'):
             val['level'] = level
 
 
-def setup_log(default_log=False, quiet=False, verbose=False,
+def setup_log(use_default_log=False, quiet=False, verbose=False,
               logging_level=None):
     package_path = os.getcwd()
-    if default_log:
+    if use_default_log:
         log_filepath = get_default_logging_filepath()
         main_cfg_msg = f'Default config path: {get_default_main_config_filepath()}'
         main_log_msg = f'Default logging path: {log_filepath}'
@@ -754,7 +792,7 @@ def setup_log(default_log=False, quiet=False, verbose=False,
     # =============
     # Start logging
     # =============
-    logger.info("Running {} v{}".format(pyutils.__name__, pyutils.__version__))
+    logger.info("Running {} v{}".format(pymlutils.__name__, pymlutils.__version__))
     logger.info("Verbose option {}".format(
         "enabled" if verbose else "disabled"))
     logger.debug("Working directory: {}".format(package_path))
