@@ -88,8 +88,8 @@ parentheses).
     parser_init = subparsers.add_parser('init',
         help='''Initialize the current working directory with the configuration
         folder and the modules for doing data exploration and training models.
-        If no other arguments is provided then all configuration files will be
-        generated.''')
+        IMPORTANT: if no other arguments is provided then all configuration
+        files will be generated.''')
     parser_init.add_argument(
         '-c', dest='init_categories', nargs='+', metavar='CATEGORY',
         help=f'''Categories of ML models for which configuration files will be
@@ -129,7 +129,7 @@ parentheses).
     parser_edit = subparsers.add_parser(
         'edit', help='''Edit a configuration file or module''')
     parser_edit.add_argument(
-        '-f', dest='filename', default='main', required=True,
+        'filename',
         help='''Name of a file to edit which can either be the main
         configuration file ('config'), logging configuration file ('log'), a
         particular model configuration file (e.g. LogisticRegression) or a
@@ -147,20 +147,21 @@ parentheses).
     # create the parser for the "list" command
     parser_list = subparsers.add_parser(
         'list', help='''List model categories and names''')
-    parser_list.add_argument(
+    group_list = parser_list.add_mutually_exclusive_group(required=True)
+    group_list.add_argument(
         '-c', dest='list_categories', action='store_true',
         help='''Show a list of all the categories of ML models found in the
         CURRENT WORKING DIRECTORY''')
-    parser_list.add_argument(
+    group_list.add_argument(
         '-m', dest='list_models', action='store_true',
         help='''Show a list of all the ML models found in the CURRENT WORKING
         DIRECTORY''')
-    parser_list.add_argument(
+    group_list.add_argument(
         '-C', dest='list_all_categories',
         action='store_true',
         help=f'''Show a list of all the SUPPORTED categories of ML models found
         in {pymlutils.__name__}''')
-    parser_list.add_argument(
+    group_list.add_argument(
         '-M', dest='list_all_models',
         action='store_true',
         help=f'''Show a list of all the SUPPORTED ML models found in
@@ -171,6 +172,11 @@ parentheses).
     # ============
     # create the parser for the "train" command
     parser_train = subparsers.add_parser('train', help='''Train models''')
+    parser_train.add_argument(
+        'model_type', choices=['clf', 'reg'],
+        default=None,
+        help='''The type of models that will be trained where 'clf' is for
+            classifier and 'reg' is for regressor''')
     parser_train.add_argument(
         '-c', dest='train_categories', nargs='+',
         metavar='CATEGORY',
@@ -185,11 +191,6 @@ parentheses).
         sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. It also
         accepts model name abbreviations as shown in the list of ML models
         ('list m').''')
-    parser_train.add_argument(
-        '-t', dest='train_type', choices=['clf', 'reg'], required=True,
-        default=None,
-        help='''The type of models that will be trained where 'clf' is for
-        classifier and 'reg' is for regressor''')
     # TODO: train_type is shown as optional arguments even though it is required
     return parser
 
