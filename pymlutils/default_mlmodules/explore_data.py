@@ -11,9 +11,6 @@ logger_data = ge.init_log('data')
 
 
 def explore(cfg_dict):
-    logger.debug("debug test")
-    logger.info("info test")
-    return 0
     # ------------------------------------
     # Data exploration: compute stats, ...
     # ------------------------------------
