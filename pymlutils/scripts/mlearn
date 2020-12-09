@@ -190,10 +190,10 @@ def parse_list_args(args, cwd_ready):
             print(CWD_NOT_READY_MSG)
 
     if args.list_all_categories:
-        list_model_info(cwd_ready=False, show_all=False)
+        list_model_info(use_cwd=False, show_all=False)
 
     if args.list_all_models:
-        list_model_info(cwd_ready=False)
+        list_model_info(use_cwd=False)
 
     return 0
 
