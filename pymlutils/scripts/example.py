@@ -1,6 +1,5 @@
-from pymlutils import genutils as ge
 from pymlutils.default_mlconfigs import config
-from pymlutils.default_mlmodules import train_models
+from pymlutils.mlutils import train_models
 
 # -----------
 # Main config
@@ -19,7 +18,7 @@ main_config = {
 # Model configurations
 # --------------------
 model1 = {
-    'model_type': 'sklearn.ensemble.AdaBoostClassifier',
+    'model_name': 'sklearn.ensemble.AdaBoostClassifier',
     'model_params': {
         'base_estimator': None,
         'n_estimators': 50,
@@ -28,7 +27,7 @@ model1 = {
 }
 
 model2 = {
-    'model_type': 'sklearn.ensemble.RandomForestClassifier',
+    'model_name': 'sklearn.ensemble.RandomForestClassifier',
     'model_params': {
         'n_estimators': 200,
         'max_depth': 10,
@@ -38,10 +37,7 @@ model2 = {
 
 
 def main():
-    # Update default config dict with dataset and model configs
-    configs = ge.get_configs(main_config, [model1, model2], quiet=False,
-                             logging_level='INFO')
-    train_models.train(configs)
+    train_models(main_config, [model1, model2], quiet=False, logging_level='DEBUG')
 
 
 if __name__ == '__main__':
