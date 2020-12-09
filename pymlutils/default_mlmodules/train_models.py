@@ -10,16 +10,16 @@ def train(configs):
     # ---------
     # Load data
     # ---------
-    data = ml.Dataset(*configs[0])
+    data = ml.Dataset(config=configs[0])
 
     # For each model, get its config dict
-    for i, cfg_dict in enumerate(configs, start=1):
+    for i, model_cfg in enumerate(configs, start=1):
         # ---------
         # Get model
         # ---------
         logger.info("")
-        logger.info(f"Model #{i}: {cfg_dict['model']['model_name']}")
-        clf = ml.get_model(**cfg_dict['model'])
+        logger.info(f"Model #{i}: {model_cfg.model.model_type}")
+        clf = ml.get_model(model_config=model_cfg.model)
 
         # -----------
         # Train model
