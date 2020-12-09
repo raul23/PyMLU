@@ -6,7 +6,7 @@ import logging
 from logging import NullHandler
 
 from pymlutils import SKLEARN_MODULES
-from pymlutils.genutils import dict_to_bunch, get_configs
+from pymlutils.genutils import get_config_from_locals, get_configs
 from pymlutils.default_mlmodules.train_models import train
 
 numpy = None
@@ -21,19 +21,7 @@ class Dataset:
     def __init__(self, builtin_dataset=None, custom_dataset=None,
                  use_custom_data=False, features=None, get_dummies=False,
                  random_seed=0, config=None, *args, **kwargs):
-        if config:
-            locals_dict = locals()
-            cfg = {}
-            for k, v in list(config.items()):
-                if k not in locals_dict:
-                    del config[k]
-            cfg = config
-        else:
-            locals_dict = locals().copy()
-            del locals_dict['self']
-            if locals_dict.get('ipdb'):
-                del locals_dict['ipdb']
-            cfg = dict_to_bunch(locals_dict)
+        cfg = get_config_from_locals(config, locals())
         global numpy, pandas
         logger.info("Importing numpy and pandas...")
         # Lazy import
@@ -75,7 +63,7 @@ class Dataset:
         self.y_train = None
         self.X_test = None
         self.y_test = None
-        self._data_types = ['train', 'valid', 'test']
+        self.data_types = ['train', 'valid', 'test']
         if cfg.use_custom_data:
             self._process_custom_dataset()
         else:
@@ -89,7 +77,7 @@ class Dataset:
             self._get_dummies()
 
     def _print_data_info(self):
-        for data_type in self._data_types:
+        for data_type in self.data_types:
             X_data, y_data = self.get_data(data_type)
             if X_data is not None:
                 logger.info(f"X_{data_type} shape: {X_data.shape}")
