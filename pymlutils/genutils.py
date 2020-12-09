@@ -338,8 +338,23 @@ def get_config_dict(cfg_type='main'):
     return load_cfg_dict(cfg_filepath, cfg_type)
 
 
-def get_configs(new_config_dict=None, model_configs=None,
-                          quiet=None, verbose=None, logging_level=None):
+def get_config_from_locals(config, locals_dict):
+    if config:
+        for k, v in list(config.items()):
+            if k not in locals_dict:
+                del config[k]
+        cfg = config
+    else:
+        locals_dict_copy = locals_dict.copy()
+        del locals_dict_copy['self']
+        if locals_dict_copy.get('ipdb'):
+            del locals_dict_copy['ipdb']
+        cfg = dict_to_bunch(locals_dict_copy)
+    return cfg
+
+
+def get_configs(new_config_dict=None, model_configs=None, quiet=None,
+                verbose=None, logging_level=None):
     # Update default config dict
     cfgs = update_default_config(new_config_dict, model_configs)
     if quiet is None and cfgs:
@@ -556,6 +571,8 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
     acronyms = []
     module_found = False
     for i, module in enumerate(SKLEARN_MODULES, start=1):
+        if i == 1:
+            msgs.append("")
         if cwd_ready:
             # Path to the model configs folder in the working directory
             module_dirpath = os.path.join(get_model_configs_dirpath(), module)
@@ -565,8 +582,8 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
                                           module)
         if os.path.exists(module_dirpath):
             spaces = '  ' if i < 10 else ' '
-            # e.g. (1)  ensemble
-            msgs.append(f"\n({i}){spaces}{module}")
+            # e.g. (3)  ensemble
+            msgs.append(f"({i}){spaces}{module}")
             module_found = True
         else:
             continue
@@ -606,6 +623,7 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
                             short_name = acronym
                         msgs.append(f"\t    - {model_name} [{short_name}]")
                         abbr_dict.setdefault(short_name.lower(), model_name)
+            msgs.append("")
     if show_all and module_found:
         msg = "\nNotes:\n- Beside each number in parentheses, it is the " \
               "model category\n- Between brackets, it is the model name " \
