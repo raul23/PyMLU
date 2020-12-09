@@ -20,11 +20,8 @@ from types import SimpleNamespace
 from warnings import warn
 
 import pymlutils
-from pymlutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME, MODEL_FNAME_SUFFIX,
-                       SKLEARN_MODULES)
-# TODO: call function
-from pymlutils.default_mlconfigs import __path__ as default_configs_dirpath
-default_configs_dirpath = default_configs_dirpath[0]
+from pymlutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME,
+                       MODEL_FNAME_SUFFIX, MODULES_DIRNAME, SKLEARN_MODULES)
 
 
 # Ref.: https://stackoverflow.com/a/26433913/14664104
@@ -41,6 +38,7 @@ logger_data = logging.getLogger('data')
 logger_data.addHandler(NullHandler())
 
 CFG_TYPES = ['main', 'log']
+MODULE_NAMES = ['explore_data', 'train_models']
 
 
 class ConfigBoilerplate:
@@ -328,6 +326,7 @@ def dict_to_namespace(adict):
                       object_hook=lambda item: SimpleNamespace(**item))
 
 
+# TODO (IMPORTANT): in a single function with get_default_config_dict
 def get_config_dict(cfg_type='main'):
     if cfg_type == 'main':
         cfg_filepath = get_main_config_filepath()
@@ -366,11 +365,6 @@ def get_configs(new_config_dict=None, model_configs=None, quiet=None,
     return cfgs
 
 
-def get_configs_dirpath():
-    from mlconfigs import __path__
-    return __path__[0]
-
-
 def get_default_config_dict(cfg_type='main'):
     if cfg_type == 'main':
         cfg_filepath = get_default_main_config_filepath()
@@ -379,29 +373,6 @@ def get_default_config_dict(cfg_type='main'):
     else:
         raise ValueError(f"Invalid cfg_type: {cfg_type}")
     return load_cfg_dict(cfg_filepath, cfg_type)
-
-
-def get_default_configs_dirpath():
-    from pymlutils.default_mlconfigs import __path__
-    return __path__[0]
-
-
-def get_default_logging_filepath():
-    return os.path.join(get_default_configs_dirpath(), 'logging.py')
-
-
-def get_default_main_config_filepath():
-    return os.path.join(get_default_configs_dirpath(), 'config.py')
-
-
-def get_default_model_configs_dirpath():
-    # Path to the default model_configs directory
-    return os.path.join(default_configs_dirpath, MODEL_CONFIGS_DIRNAME)
-
-
-def get_default_scripts_dirpath():
-    from pymlutils.default_mlmodules import __path__
-    return __path__[0]
 
 
 # TODO: explain cases
@@ -427,14 +398,6 @@ def get_logger_name(module__name__, module___file__, package_name=None):
         # e.g. importing mlutils from train_models.py
         logger_name = module__name__
     return logger_name
-
-
-def get_logging_filepath():
-    return os.path.join(get_configs_dirpath(), 'logging.py')
-
-
-def get_main_config_filepath():
-    return os.path.join(get_configs_dirpath(), 'config.py')
 
 
 # TODO: use file_pattern (regex)
@@ -486,11 +449,6 @@ def get_model_config_filepaths(root, categories=None, model_type=None,
                 # model type or model name not found in the fname; next fname
                 continue
     return filepaths
-
-
-def get_model_configs_dirpath():
-    # Path to the model_configs directory in the current working directory
-    return os.path.join(os.getcwd(), CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME)
 
 
 def get_settings(conf, cfg_type):
@@ -633,17 +591,20 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
     if print_msgs:
         idx_start = 0
         n_lines = 25
-        while True:
-            group_msgs = msgs[idx_start:idx_start+n_lines]
-            idx_start += n_lines
-            for msg in group_msgs:
-                print(msg)
-            if idx_start >= len(msgs):
-                break
-            input("Press ENTER to continue...")
-            # Ref.: https://stackoverflow.com/a/52590238/14664104
-            sys.stdout.write('\x1b[1A')
-            sys.stdout.write('\x1b[2K')
+        try:
+            while True:
+                group_msgs = msgs[idx_start:idx_start+n_lines]
+                idx_start += n_lines
+                for msg in group_msgs:
+                    print(msg)
+                if idx_start >= len(msgs):
+                    break
+                input("Press ENTER to continue (or Ctrl+C to exit)...")
+                # Ref.: https://stackoverflow.com/a/52590238/14664104
+                sys.stdout.write('\x1b[1A')
+                sys.stdout.write('\x1b[2K')
+        except KeyboardInterrupt:
+            print("")
     return abbr_dict
 
 
@@ -845,3 +806,61 @@ def update_default_config(new_data, model_configs=None):
         default_cfg_copy.update({'model': m_cfg})
         cfg_dicts.append(default_cfg_copy)
     return cfg_dicts
+
+
+# TODO (IMPORTANT): use a single function for all of these
+# ------------------------------
+# Default dirpaths and filepaths
+# ------------------------------
+def get_default_configs_dirpath():
+    from pymlutils.default_mlconfigs import __path__
+    return __path__[0]
+
+
+def get_default_logging_filepath():
+    return os.path.join(get_default_configs_dirpath(), 'logging.py')
+
+
+def get_default_main_config_filepath():
+    return os.path.join(get_default_configs_dirpath(), 'config.py')
+
+
+def get_default_model_configs_dirpath():
+    # Path to the default model_configs directory
+    return os.path.join(get_default_configs_dirpath(), MODEL_CONFIGS_DIRNAME)
+
+
+def get_default_modules_dirpath():
+    from pymlutils.default_mlmodules import __path__
+    return __path__[0]
+
+
+# --------------------------
+# CWD dirpaths and filepaths
+# --------------------------
+def get_configs_dirpath():
+    from mlconfigs import __path__
+    return __path__[0]
+
+
+def get_logging_filepath():
+    return os.path.join(get_configs_dirpath(), 'logging.py')
+
+
+def get_main_config_filepath():
+    return os.path.join(get_configs_dirpath(), 'config.py')
+
+
+def get_model_configs_dirpath():
+    # Path to the model_configs folder in the current working directory
+    return os.path.join(os.getcwd(), CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME)
+
+
+def get_modules_dirpath():
+    # Path to the module folder in the current working directory
+    return os.path.join(os.getcwd(), MODULES_DIRNAME)
+
+
+def get_module_filepath(module_name):
+    assert module_name in MODULE_NAMES, f"Invalid module name: {module_name}"
+    return os.path.join(get_modules_dirpath(), module_name+'.py')
