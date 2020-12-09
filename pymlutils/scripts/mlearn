@@ -10,11 +10,28 @@ from pymlutils.genutils import (dict_to_bunch, get_config_dict,
                                 list_model_info, setup_log)
 
 logger = init_log(__name__, __file__)
+CWD_NOT_READY_MSG = "The current working directory is not initialized"
 
 
+def get_main_config():
+    cwd_ready = is_cwd_ready()
+    # -------------------------------------
+    # Get config filepath and setup logging
+    # -------------------------------------
+    if cwd_ready:
+        # Get config dict
+        main_cfg_dict = get_config_dict('main')
+    else:
+        # Get default config dict
+        main_cfg_dict = get_default_config_dict('main')
+    main_cfg = dict_to_bunch(main_cfg_dict)
+    setup_log(not cwd_ready, main_cfg.quiet, main_cfg.verbose)
+    return main_cfg, cwd_ready
+
+
+# Check the current working directory if it has already been initialized
+# TODO: is it robust enough?
 def is_cwd_ready():
-    # Check the current working directory if it has already been initialized
-    # TODO: is it robust enough?
     try:
         cwd_ready = True
         from mlconfigs import config
@@ -23,22 +40,43 @@ def is_cwd_ready():
     return cwd_ready
 
 
-# sub-command functions
+# ---------------------
+# Sub-command functions
+# ---------------------
+
+# Init cwd with configuration files and modules
+def parse_init_args(args, main_cfg, cwd_ready):
+    return 0
+
+
+# Data exploration
+def parse_data_args(args, main_cfg, cwd_ready):
+    if cwd_ready:
+        from mlmodules import explore_data
+        explore_data.explore(main_cfg)
+    else:
+        print(CWD_NOT_READY_MSG)
+    return 0
+
+
+# Edit configuration files
+def parse_edit_args(args, main_cfg, cwd_ready):
+    return 0
+
+
+# List model categories and names
 def parse_list_args(args, cwd_ready):
-    # ------------------------------------
-    # -l : list model categories and names
-    # ------------------------------------
     if args.list_categories:
         if cwd_ready:
             list_model_info(show_all=False)
         else:
-            print("The current working directory is not initialized")
+            print(CWD_NOT_READY_MSG)
 
     if args.list_models:
         if cwd_ready:
             list_model_info()
         else:
-            print("The current working directory is not initialized")
+            print(CWD_NOT_READY_MSG)
 
     if args.list_all_categories:
         list_model_info(cwd_ready=False, show_all=False)
@@ -46,6 +84,15 @@ def parse_list_args(args, cwd_ready):
     if args.list_all_models:
         list_model_info(cwd_ready=False)
 
+    return 0
+
+
+# Train models
+def parse_train_args(args, main_cfg, cwd_ready):
+    """
+    from mlmodules import train_models
+    train_models.train([main_cfg])
+    """
     return 0
 
 
@@ -122,6 +169,7 @@ parentheses).
     parser_data = subparsers.add_parser('data',
         help='''Perform data exploration of a dataset as defined in the main
         configuration file (config.py)''')
+    parser_data.set_defaults(func=parse_data_args)
     # ==========
     # Edit files
     # ==========
@@ -199,40 +247,11 @@ def main():
     parser = setup_argparser()
     args = parser.parse_args()
 
-    # Check the current working directory if it has already been initialized
-    cwd_ready = is_cwd_ready()
-    retval = args.func(args, cwd_ready)
-    return retval
-
-    # ------------------------------------
-    # -l : list model categories and names
-    # ------------------------------------
-    import ipdb
-    ipdb.set_trace()
-
-    # To avoid logging info before listing the categories and model names
-
-    # -------------------------------------
-    # Get config filepath and setup logging
-    # -------------------------------------
-    if use_default_cfgs:
-        # Get default config dict
-        main_cfg_dict = get_default_config_dict('main')
+    if args.subparser_name == 'list':
+        return args.func(args, is_cwd_ready())
     else:
-        # Get config dict
-        main_cfg_dict = get_config_dict('main')
-
-    import ipdb
-    ipdb.set_trace()
-
-    main_cfg = dict_to_bunch(main_cfg_dict)
-    setup_log(use_default_cfgs, main_cfg.quiet, main_cfg.verbose)
-
-    from mlmodules import train_models
-    train_models.train([main_cfg])
-
-    from mlmodules import explore_data
-    explore_data.explore(main_cfg)
+        main_cfg, cwd_ready = get_main_config()
+        return args.func(args, main_cfg, cwd_ready)
 
 
 if __name__ == '__main__':
