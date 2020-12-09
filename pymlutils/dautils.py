@@ -4,6 +4,7 @@ import copy
 import logging
 from logging import NullHandler
 
+from pymlutils.genutils import get_config_from_locals
 from pymlutils.mlutils import Dataset
 
 pandas = None
@@ -22,43 +23,49 @@ class DataExplorer:
                  excluded_cols=None, data_head=5, train_head=5,
                  valid_head=5, test_head=5, data_isnull=True,
                  train_isnull=True, valid_isnull=True, test_isnull=True,
-                 *args, **kwargs):
+                 config=None, *args, **kwargs):
+        cfg = get_config_from_locals(config, locals())
         global pandas
         logger.info("Importing pandas...")
-        # Slow to import
+        # Lazy import
         import pandas
-        self.train_stats = train_stats
-        self.valid_stats = valid_stats
-        self.test_stats = test_stats
-        self.excluded_cols = excluded_cols
-        self.train_head = train_head
-        self.valid_head = valid_head
-        self.test_head = test_head
-        self.train_isnull = train_isnull
-        self.valid_isnull = valid_isnull
-        self.test_isnull = test_isnull
+        self.builtin_dataset = cfg.builtin_dataset
+        self.custom_dataset = cfg.custom_dataset
+        self.use_custom_data = cfg.use_custom_data
+        self.train_stats = cfg.train_stats
+        self.valid_stats = cfg.valid_stats
+        self.test_stats = cfg.test_stats
+        self.excluded_cols = cfg.excluded_cols
+        self.train_head = cfg.train_head
+        self.valid_head = cfg.valid_head
+        self.test_head = cfg.test_head
+        self.train_isnull = cfg.train_isnull
+        self.valid_isnull = cfg.valid_isnull
+        self.test_isnull = cfg.test_isnull
         # ---------
         # Load data
         # ---------
-        self.dataset = Dataset(builtin_dataset, custom_dataset, use_custom_data)
+        self.dataset = Dataset(cfg.builtin_dataset, cfg.custom_dataset,
+                               cfg.use_custom_data)
 
     def compute_stats(self):
-        for data_type in self.dataset._data_types:
+        for data_type in self.dataset.data_types:
             X_data, y_data = self.dataset.get_data(data_type)
-            if X_data is not None and y_data is not None:
+            if (X_data is not None or y_data is not None) and \
+                    self.__getattribute__('{}_stats'.format(data_type)):
                 # TODO: explain why we do concat()
                 concat_data = pandas.concat([X_data, y_data], axis=1)
                 compute_stats(concat_data, data_type,
                               excluded_cols=self.excluded_cols)
             else:
-                # TODO: debug log (couldn't compute stats because missing data)
+                # TODO: log (missing data)
                 pass
 
     def count_null(self):
-        for data_type in self.dataset._data_types:
+        for data_type in self.dataset.data_types:
             X_data, y_data = self.dataset.get_data(data_type)
-            if X_data is not None and y_data is not None \
-                    and self.__getattribute__('{}_isnull'.format(data_type)):
+            if (X_data is not None or y_data is not None) and \
+                    self.__getattribute__('{}_isnull'.format(data_type)):
                 concat_data = pandas.concat([X_data, y_data], axis=1)
                 logger_data.info(
                     "*** Number of missing values for each column in {} "
@@ -66,21 +73,21 @@ class DataExplorer:
                         data_type,
                         concat_data.isnull().sum()))
             else:
-                # TODO: debug log (couldn't compute states because missing data)
+                # TODO: log (missing data)
                 pass
 
     def head(self):
-        for data_type in self.dataset._data_types:
+        for data_type in self.dataset.data_types:
             n_rows = self.__getattribute__('{}_head'.format(data_type))
             X_data, y_data = self.dataset.get_data(data_type)
-            if X_data is not None and y_data is not None:
+            if (X_data is not None or y_data is not None) and n_rows:
                 concat_data = pandas.concat([X_data, y_data], axis=1)
                 logger_data.info("*** First {} rows of {} ***\n{}\n".format(
                     n_rows,
                     data_type,
                     concat_data.head(n_rows)))
             else:
-                # TODO: debug log (couldn't compute states because missing data)
+                # TODO: log (missing data)
                 pass
 
 
