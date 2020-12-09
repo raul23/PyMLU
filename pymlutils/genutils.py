@@ -1,6 +1,5 @@
 """General utilities
 """
-import argparse
 import codecs
 import copy
 import glob
@@ -131,17 +130,6 @@ class ConfigBoilerplate:
         parser = self._setup_argparser_for_train_script()
         args = parser.parse_args()
 
-        # --------------------------------------------------------------------
-        # -l and -lm : list model categories and/or their associated ML models
-        # --------------------------------------------------------------------
-        if args.list_categories:
-            list_model_info(show_all=False)
-            sys.exit(0)
-
-        if args.list_models:
-            list_model_info()
-            sys.exit(0)
-
         # ---------------------
         # No arguments provided
         # ---------------------
@@ -197,81 +185,6 @@ class ConfigBoilerplate:
             cfg_data['cfg_dicts'].append(cfg_dict)
             cfg_data['cfg_filepaths'].append(cfg_fp)
         return cfg_data
-
-    @staticmethod
-    def _setup_argparser_for_explore_script():
-        """Setup the argument parser for the command-line script.
-
-        TODO
-
-        Returns
-        -------
-        parser : argparse.ArgumentParser
-            Argument parser.
-
-        """
-        # Setup the parser
-        parser = argparse.ArgumentParser(
-            # usage="%(prog)s [OPTIONS]",
-            # prog=os.path.basename(__file__),
-            description='''\
-            TODO\n''',
-            # formatter_class=argparse.RawDescriptionHelpFormatter)
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        # TODO: package name too? instead of program name (e.g. train_models.py)
-        parser.add_argument("--version", action='version',
-                            version='%(prog)s v{}'.format(pymlutils.__version__))
-        return parser
-
-    @staticmethod
-    def _setup_argparser_for_train_script():
-        """Setup the argument parser for the command-line script.
-
-        TODO
-
-        Returns
-        -------
-        parser : argparse.ArgumentParser
-            Argument parser.
-
-        """
-        # Setup the parser
-        parser = argparse.ArgumentParser(
-            # usage="%(prog)s [OPTIONS]",
-            # prog=os.path.basename(__file__),
-            description='''\
-    TODO\n''',
-            # formatter_class=argparse.RawDescriptionHelpFormatter)
-            formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        # TODO: package name too? instead of program name (e.g. train_models.py)
-        parser.add_argument("--version", action='version',
-                            version='%(prog)s v{}'.format(pymlutils.__version__))
-        parser.add_argument(
-            "-l", "--list-categories", dest="list_categories", action='store_true',
-            help='''Show a list of all the supported ML model categories. Then
-            the program exits.''')
-        parser.add_argument(
-            "-lm", "--list-models", dest="list_models", action='store_true',
-            help='''Show a list of all the supported ML models. Then the
-            program exits.''')
-        parser.add_argument(
-            "-c", "--categories", dest="categories", nargs="+",
-            help='''Categories of ML models for which models will be trained.
-            These categories correspond to sklearn packages of ML models, e.g. 
-            ensemble or linear_model. Use the -l argument to show a complete
-            list of all the ML model categories.''')
-        parser.add_argument(
-            "-m", "--models", dest="models", nargs="+",
-            help='''Names of ML models that will be trained. These correspond
-            to sklearn classes of ML models, e.g. SVC or AdaBoostClassifier.
-            Use the -lm argument to show a complete list of all the supported 
-            ML models. Accept model name abbreviations as shown in the list.''')
-        parser.add_argument(
-            "-t", "--model_type", dest="model_type", choices=['clf', 'reg'],
-            default=None,
-            help='''The type of model for which models will be trained. `clf`
-            is for classifier and `reg` is for regressor.''')
-        return parser
 
     def _setup_log_from_cfg(self):
         # NOTE: if quiet and verbose are both activated, only quiet will have an effect
@@ -404,12 +317,9 @@ def get_logger_name(module__name__, module___file__, package_name=None):
 def get_model_config_filepaths(root, categories=None, model_type=None,
                                model_names=None, fname_suffix=MODEL_FNAME_SUFFIX,
                                ignore_fnames=None, lower_model_names=True):
-    if categories is None:
-        categories = []
-    if model_names is None:
-        model_names = []
-    if ignore_fnames is None:
-        ignore_fnames = []
+    categories = [] if categories is None else categories
+    model_names = [] if model_names is None else model_names
+    ignore_fnames = [] if ignore_fnames is None else ignore_fnames
     if model_type:
         model_type = model_type.lower()
         assert model_type in ['classifiers', 'regressors'], \
@@ -483,6 +393,7 @@ def init_log(module__name__, module___file__=None, package_name=None):
     return logger_
 
 
+# TODO: not used
 def is_substring(string, substrings, lower=True):
     # Search the string for one of the substrings
     substring_found = False
@@ -500,10 +411,10 @@ def is_substring(string, substrings, lower=True):
     return substring_found
 
 
-def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msgs=True):
+def list_model_info(use_cwd=True, show_all=True):
     msgs = []
     abbr_dict = {}
-    default_abbreviations = {
+    abbreviations = {
         'CategoricalNB': 'CatNB',
         'ComplementNB': 'ComNB',
         'ExtraTreeClassifier': 'ETC',
@@ -512,26 +423,22 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
         'ExtraTreesRegressr': 'EETR',
         'LinearRegression': 'LiR',
         'LogisticRegression': 'LoR'}
-    if abbreviations is None:
-        abbreviations = default_abbreviations
-    else:
-        abbreviations = default_abbreviations.update(abbreviations)
     if show_all:
         title = "***List of model categories and names***"
     else:
         title = "***List of model categories***"
-    if cwd_ready:
-        title2 = "Source: current working directory"
+    if use_cwd:
+        source_msg = "Source: current working directory"
     else:
-        title2 = f"Source: {pymlutils.__name__}"
+        source_msg = f"Source: {pymlutils.__name__}"
     msgs.append(title)
-    msgs.append(title2)
+    msgs.append(source_msg)
     acronyms = []
     module_found = False
     for i, module in enumerate(SKLEARN_MODULES, start=1):
         if i == 1:
             msgs.append("")
-        if cwd_ready:
+        if use_cwd:
             # Path to the model configs folder in the working directory
             module_dirpath = os.path.join(get_model_configs_dirpath(), module)
         else:
@@ -587,24 +494,24 @@ def list_model_info(cwd_ready=True, show_all=True, abbreviations=None, print_msg
               "model category\n- Between brackets, it is the model name " \
               "abbreviation\n"
         msgs.append(msg)
-        msgs.append(title2)
-    if print_msgs:
-        idx_start = 0
-        n_lines = 25
-        try:
-            while True:
-                group_msgs = msgs[idx_start:idx_start+n_lines]
-                idx_start += n_lines
-                for msg in group_msgs:
-                    print(msg)
-                if idx_start >= len(msgs):
-                    break
-                input("Press ENTER to continue (or Ctrl+C to exit)...")
-                # Ref.: https://stackoverflow.com/a/52590238/14664104
-                sys.stdout.write('\x1b[1A')
-                sys.stdout.write('\x1b[2K')
-        except KeyboardInterrupt:
-            print("")
+        msgs.append(source_msg)
+    # TODO: print_and_wait()
+    idx_start = 0
+    n_lines = 25
+    try:
+        while True:
+            group_msgs = msgs[idx_start:idx_start+n_lines]
+            idx_start += n_lines
+            for msg in group_msgs:
+                print(msg)
+            if idx_start >= len(msgs):
+                break
+            input("Press ENTER to continue (or Ctrl+C to exit)...")
+            # Ref.: https://stackoverflow.com/a/52590238/14664104
+            sys.stdout.write('\x1b[1A')
+            sys.stdout.write('\x1b[2K')
+    except KeyboardInterrupt:
+        print("")
     return abbr_dict
 
 
@@ -692,23 +599,6 @@ def namespace_to_dict(ns):
         if isinstance(v, dict):
             namespace_to_dict(v)
     return adict
-
-
-def process_model_names(model_names):
-    processed_names = []
-    for model_name in model_names:
-        abbr_dict = list_model_info(print_msgs=False)
-        model_name = model_name.lower()
-        if abbr_dict.get(model_name):
-            processed_names.append(abbr_dict.get(model_name))
-        else:
-            processed_names.append(model_name)
-    return processed_names
-
-
-# TODO: not used
-def remove_ext(filename):
-    return os.path.splitext(filename)[0]
 
 
 def run_cmd(cmd):
