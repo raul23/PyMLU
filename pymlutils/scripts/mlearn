@@ -2,15 +2,109 @@
 """TODO
 """
 import argparse
+import platform
+import os
 import sys
 
 import pymlutils
 from pymlutils.genutils import (dict_to_bunch, get_config_dict,
-                                get_default_config_dict, init_log,
-                                list_model_info, setup_log)
+                                get_default_config_dict, get_logging_filepath,
+                                get_main_config_filepath, get_module_filepath,
+                                init_log, list_model_info, run_cmd, setup_log,
+                                MODULE_NAMES)
 
 logger = init_log(__name__, __file__)
 CWD_NOT_READY_MSG = "The current working directory is not initialized"
+
+
+# NOTE: https://stackoverflow.com/a/27163648 [launch PyCharm from terminal]
+def edit_file(filepath, app=None, create_if_not=False):
+    """Edit a file.
+
+    TODO: remove config
+
+    The user chooses the config file (`cfg_filepath`) to edit: the
+    `logging config file`_, `main config file`_ or a particular model
+    configuration file (e.g. LogisticRegression)
+
+    The configuration file can be opened by a user-specified application (`app`)
+    or a default program associated with this type of file (when `app` is
+    :obj:`None`).
+
+    Parameters
+    ----------
+    filepath : str
+        The configuration file to edit. The `logging config file`_,
+        `main config file`_ or a particular model configuration file (e.g.
+        LogisticRegression).
+    app : str, optional
+        Name of the application to use for opening the config file, e.g.
+        `TextEdit` (the default value is :obj:`None` which implies that the
+        default application will be used to open the config file).
+
+    Returns
+    -------
+    retcode : int
+        If there is a `subprocess
+        <https://docs.python.org/3/library/subprocess.html#subprocess.CalledProcessError>`_
+        -related error, the return code is non-zero. Otherwise, it is 0 if the
+        file can be successfully opened with an external program.
+
+    """
+    # Check if file exists
+    file_exists = os.path.exists(filepath)
+    if not file_exists and not create_if_not:
+        logger.error(f"The file doesn't exists: {filepath}")
+        return 1
+    # Command to open the config file with the default application in the
+    # OS or the user-specified app, e.g. `open filepath` in macOS opens the
+    # file with the default app (e.g. atom)
+    default_cmd_dict = {'Darwin': 'open {filepath}',
+                        'Linux': 'xdg-open {filepath}',
+                        'Windows': 'cmd /c start "" "{filepath}"'}
+    # NOTE: check https://bit.ly/31htaOT (pymotw) for output from
+    # platform.system on three OSes
+    default_cmd = default_cmd_dict.get(platform.system())
+    # NOTES:
+    # - `app is None` implies that the default app will be used
+    # - Otherwise, the user-specified app will be used
+    cmd = default_cmd if app is None else app + " " + filepath
+    retcode = 1
+    result = None
+    try:
+        # IMPORTANT: if the user provided the name of an app, it will be used as
+        # a command along with the file path, e.g. ``$ atom {filepath}``.
+        # However, this case might not work if the user provided an app name
+        # that doesn't refer to an executable, e.g. ``$ TextEdit {filepath}``
+        # won't work. The failed case is further processed in the except block.
+        result = run_cmd(cmd.format(filepath=filepath))
+        retcode = result.returncode
+    except FileNotFoundError:
+        # This error happens if the name of the app can't be called as an
+        # executable in the terminal
+        # e.g. `TextEdit` can't be run in the terminal but `atom` can since the
+        # latter refers to an executable.
+        # To open `TextEdit` from the terminal, the command ``open -a TextEdit``
+        # must be used on macOS.
+        # TODO: IMPORTANT add the open commands for the other OSes
+        specific_cmd_dict = {'Darwin': 'open -a {app}'.format(app=app)}
+        # Get the command to open the file with the user-specified app
+        cmd = specific_cmd_dict.get(platform.system(), app) + " " + filepath
+        # TODO: explain DEVNULL, suppress stderr since we will display the error
+        # TODO: IMPORTANT you might get a FileNotFoundError again?
+        result = run_cmd(cmd)  # stderr=subprocess.DEVNULL)
+        retcode = result.returncode
+    if retcode == 0:
+        if create_if_not:
+            logger.warning(f"The file doesn't exists but will be created: "
+                           f"{filepath}'")
+        logger.info("Opening the {} file ...".format(
+            os.path.basename(filepath)))
+    else:
+        if result:
+            err = result.stderr.decode().strip()
+            logger.error(err)
+    return retcode
 
 
 def get_main_config():
@@ -50,7 +144,8 @@ def parse_init_args(args, main_cfg, cwd_ready):
 
 
 # Data exploration
-def parse_data_args(args, main_cfg, cwd_ready):
+# TODO: args not used
+def parse_data_args(main_cfg, cwd_ready):
     if cwd_ready:
         from mlmodules import explore_data
         explore_data.explore(main_cfg)
@@ -60,7 +155,23 @@ def parse_data_args(args, main_cfg, cwd_ready):
 
 
 # Edit configuration files
-def parse_edit_args(args, main_cfg, cwd_ready):
+def parse_edit_args(args, cwd_ready):
+    if cwd_ready:
+        if args.filename in ['log', 'logging']:
+            filepath = get_logging_filepath()
+        elif args.filename in ['main', 'config']:
+            filepath = get_main_config_filepath()
+        elif args.filename in MODULE_NAMES:
+            filepath = get_module_filepath(args.filename)
+        else:
+            filepath = ''
+        if filepath:
+            edit_file(filepath, args.app)
+        else:
+            logger.error(f"The file '{args.filename}' could not be retrieved. "
+                         "Check the name of the file provided to the script.")
+    else:
+        print(CWD_NOT_READY_MSG)
     return 0
 
 
@@ -162,6 +273,7 @@ parentheses).
         '-o', dest='overwrite', action='store_true',
         help='''Overwrite existing files and folders generated from a previous
         run of the program''')
+    parser_init.set_defaults(func=parse_init_args)
     # ================
     # Data exploration
     # ================
@@ -184,11 +296,12 @@ parentheses).
         module ({'explore_data', 'train_models'}). It also accepts model name
         abbreviations as shown in the list of ML models ('list -m').''')
     parser_edit.add_argument(
-        '--app', metavar='NAME',
+        '-a', '--app', metavar='NAME',
         required='-e' in sys.argv or '--edit' in sys.argv,
         help='''Name of the application to use for editing the file. If no name
         is given, then the default application for opening this type of file
         will be used.''')
+    parser_edit.set_defaults(func=parse_edit_args)
     # ===============================
     # List model categories and names
     # ===============================
@@ -239,7 +352,7 @@ parentheses).
         sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. It also
         accepts model name abbreviations as shown in the list of ML models
         ('list m').''')
-    # TODO: train_type is shown as optional arguments even though it is required
+    parser_train.set_defaults(func=parse_train_args)
     return parser
 
 
@@ -250,8 +363,14 @@ def main():
     if args.subparser_name == 'list':
         return args.func(args, is_cwd_ready())
     else:
+        # Get main config here because we don't want to show logging when listing
         main_cfg, cwd_ready = get_main_config()
-        return args.func(args, main_cfg, cwd_ready)
+        if args.subparser_name == 'data':
+            return args.func(main_cfg, cwd_ready)
+        elif args.subparser_name == 'edit':
+            return args.func(args, cwd_ready)
+        else:
+            return args.func(args, main_cfg, cwd_ready)
 
 
 if __name__ == '__main__':
