@@ -9,12 +9,14 @@ import sys
 import pymlutils
 from pymlutils.genutils import (dict_to_bunch, get_config_dict,
                                 get_default_config_dict, get_logging_filepath,
-                                get_main_config_filepath, get_module_filepath,
+                                get_main_config_filepath,
+                                get_model_config_filepaths,
+                                get_model_configs_dirpath, get_module_filepath,
                                 init_log, list_model_info, run_cmd, setup_log,
                                 MODULE_NAMES)
 
 logger = init_log(__name__, __file__)
-CWD_NOT_READY_MSG = "The current working directory is not initialized"
+CWD_NOT_READY_MSG = "fatal: The current working directory is not initialized"
 
 
 # NOTE: https://stackoverflow.com/a/27163648 [launch PyCharm from terminal]
@@ -98,8 +100,9 @@ def edit_file(filepath, app=None, create_if_not=False):
         if create_if_not:
             logger.warning(f"The file doesn't exists but will be created: "
                            f"{filepath}'")
-        logger.info("Opening the {} file ...".format(
+        logger.info("Opening the file {}...".format(
             os.path.basename(filepath)))
+        logger.debug(f"Filepath: {filepath}")
     else:
         if result:
             err = result.stderr.decode().strip()
@@ -149,9 +152,10 @@ def parse_data_args(main_cfg, cwd_ready):
     if cwd_ready:
         from mlmodules import explore_data
         explore_data.explore(main_cfg)
+        return 0
     else:
         print(CWD_NOT_READY_MSG)
-    return 0
+        return 1
 
 
 # Edit configuration files
@@ -164,14 +168,21 @@ def parse_edit_args(args, cwd_ready):
         elif args.filename in MODULE_NAMES:
             filepath = get_module_filepath(args.filename)
         else:
-            filepath = ''
-        if filepath:
-            edit_file(filepath, args.app)
-        else:
-            logger.error(f"The file '{args.filename}' could not be retrieved. "
-                         "Check the name of the file provided to the script.")
+            filepath = get_model_config_filepaths(
+                root=get_model_configs_dirpath(), model_names=[args.filename])
+            assert len(filepath) <= 1, "More than one model configuration file" \
+                                       "were retrieved"
+            if filepath:
+                filepath = filepath[0]
+            else:
+                logger.error(f"The model config file for '{args.filename}' "
+                             "could not be retrieved\nCheck the name or "
+                             "abbreviation of the model provided to the script")
+                return 1
+        edit_file(filepath, args.app)
     else:
         print(CWD_NOT_READY_MSG)
+        return 1
     return 0
 
 
@@ -182,12 +193,14 @@ def parse_list_args(args, cwd_ready):
             list_model_info(show_all=False)
         else:
             print(CWD_NOT_READY_MSG)
+            return 1
 
     if args.list_models:
         if cwd_ready:
             list_model_info()
         else:
             print(CWD_NOT_READY_MSG)
+            return 1
 
     if args.list_all_categories:
         list_model_info(use_cwd=False, show_all=False)
