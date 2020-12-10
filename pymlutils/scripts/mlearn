@@ -7,15 +7,19 @@ import os
 import sys
 
 import pymlutils
+from pymlutils import SKLEARN_MODULES
 from pymlutils.genutils import (dict_to_bunch, get_config_dict,
                                 get_default_config_dict, get_logging_filepath,
                                 get_main_config_filepath,
                                 get_model_config_filepaths,
                                 get_model_configs_dirpath, get_module_filepath,
-                                init_log, list_model_info, run_cmd, setup_log,
-                                MODULE_NAMES)
+                                init_log, list_model_info, run_cmd,
+                                load_cfg_dict, override_default_cfg_dict,
+                                setup_log, warning_on_one_line, MODULE_NAMES)
+from mlmodules import train_models
 
 logger = init_log(__name__, __file__)
+logger_data = init_log('data')
 CWD_NOT_READY_MSG = "fatal: The current working directory is not initialized"
 
 
@@ -160,29 +164,28 @@ def parse_data_args(main_cfg, cwd_ready):
 
 # Edit configuration files
 def parse_edit_args(args, cwd_ready):
-    if cwd_ready:
-        if args.filename in ['log', 'logging']:
-            filepath = get_logging_filepath()
-        elif args.filename in ['main', 'config']:
-            filepath = get_main_config_filepath()
-        elif args.filename in MODULE_NAMES:
-            filepath = get_module_filepath(args.filename)
-        else:
-            filepath = get_model_config_filepaths(
-                root=get_model_configs_dirpath(), model_names=[args.filename])
-            assert len(filepath) <= 1, "More than one model configuration file" \
-                                       "were retrieved"
-            if filepath:
-                filepath = filepath[0]
-            else:
-                logger.error(f"The model config file for '{args.filename}' "
-                             "could not be retrieved\nCheck the name or "
-                             "abbreviation of the model provided to the script")
-                return 1
-        edit_file(filepath, args.app)
-    else:
+    if not cwd_ready:
         print(CWD_NOT_READY_MSG)
         return 1
+    if args.filename in ['log', 'logging']:
+        filepath = get_logging_filepath()
+    elif args.filename in ['main', 'config']:
+        filepath = get_main_config_filepath()
+    elif args.filename in MODULE_NAMES:
+        filepath = get_module_filepath(args.filename)
+    else:
+        filepath = get_model_config_filepaths(
+            root=get_model_configs_dirpath(), model_names=[args.filename])
+        assert len(filepath) <= 1, "More than one model configuration file" \
+                                   "were retrieved"
+        if filepath:
+            filepath = filepath[0]
+        else:
+            logger.error(f"The model config file for '{args.filename}' "
+                         "could not be retrieved\nCheck the name or "
+                         "abbreviation of the model provided to the script")
+            return 1
+    edit_file(filepath, args.app)
     return 0
 
 
@@ -212,11 +215,58 @@ def parse_list_args(args, cwd_ready):
 
 
 # Train models
+# TODO: don't need main_cfg
 def parse_train_args(args, main_cfg, cwd_ready):
-    """
-    from mlmodules import train_models
-    train_models.train([main_cfg])
-    """
+    cfg_data = {'cfg_filepaths': [], 'cfgs': []}
+    if not cwd_ready:
+        print(CWD_NOT_READY_MSG)
+        return 1
+    # --------------------------------------------------
+    # -c -t -m: categories, types and names of ML models
+    # --------------------------------------------------
+    if args.train_categories:
+        for cat in args.train_categories:
+            # TODO: check all ValueError which should be AssertionError
+            # TODO: add name of script __file__
+            assert cat in SKLEARN_MODULES, \
+                f"Invalid model category: {cat}. Run the script with 'list " \
+                "-c' to get the complete list of all the installed categories"
+    # if isinstance(args.categories, list) and not args.categories:
+    # TODO: fix following line (warning in PyCharm)
+    if args.train_categories == []:
+        logger.info("**All model categories selected**\n")
+        args.train_categories = SKLEARN_MODULES
+    args.model_type = 'classifiers' if args.model_type == 'clf' else 'regressors'
+    args.train_models = [] if args.train_models is None else args.train_models
+    # Path to the model_configs directory in the current working directory
+    model_configs_dirpath = get_model_configs_dirpath()
+    model_config_filepaths = get_model_config_filepaths(
+        model_configs_dirpath, args.train_categories, args.model_type,
+        args.train_models, '.py', ['__init__.py'])
+    assert model_config_filepaths, \
+        "No model config files could be retrieved. Check the model names " \
+        "provided to the script."
+    logger.debug(f"Retrieved {len(model_config_filepaths)} model config files")
+    for i, cfg_fp in enumerate(model_config_filepaths, start=1):
+        if i == 1:
+            logger_data.debug("")
+        logger.debug(f"Model config #{i}: {os.path.basename(cfg_fp)}")
+        # logger_data.debug(f"{cfg_fp}")
+        # Get config dict
+        cfg_dict = load_cfg_dict(cfg_fp, 'main')
+        # Override default cfg dict with user-defined cfg dict
+        log_msgs = override_default_cfg_dict(cfg_dict, 'main')['main']
+        cfg_data['cfgs'].append(dict_to_bunch(cfg_dict))
+        cfg_data['cfg_filepaths'].append(cfg_fp)
+        if log_msgs:
+            logger.debug(f"{len(log_msgs)} option(s) overridden in main")
+            msg = f"# Overridden options in main"
+            equals_line = "# " + (len(msg) - 2) * "="
+            logger_data.debug(f"{equals_line}\n{msg}\n{equals_line}")
+            for msg in log_msgs:
+                logger_data.debug(msg)
+            logger_data.debug("")
+    train_models.train(cfg_data['cfgs'])
     return 0
 
 
@@ -351,39 +401,48 @@ parentheses).
         default=None,
         help='''The type of models that will be trained where 'clf' is for
             classifier and 'reg' is for regressor''')
+    # TODO: use os.path.basename(__file__) in help
     parser_train.add_argument(
-        '-c', dest='train_categories', nargs='+',
+        '-c', dest='train_categories', nargs='*',
         metavar='CATEGORY',
         help='''Categories of ML models that will be trained. These correspond
         to sklearn packages of ML models, e.g. ensemble or linear_model. Use
-        the subcommand 'list c' to show a list of the categories of ML models
-        found in the current working directory.''')
+        the subcommand 'list -c' to show a list of the categories of ML models
+        found in the current working directory. IMPORTANT: if no arguments is
+        provided to -c, then all categories found in the current working
+        directory will be selected''')
     parser_train.add_argument(
         '-m', dest='train_models', nargs='+',
         metavar='MODEL',
         help='''Names of ML models that will be trained. These correspond to
         sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. It also
         accepts model name abbreviations as shown in the list of ML models
-        ('list m').''')
+        ('list -m').''')
     parser_train.set_defaults(func=parse_train_args)
     return parser
 
 
 def main():
-    parser = setup_argparser()
-    args = parser.parse_args()
+    try:
+        parser = setup_argparser()
+        args = parser.parse_args()
 
-    if args.subparser_name == 'list':
-        return args.func(args, is_cwd_ready())
-    else:
-        # Get main config here because we don't want to show logging when listing
-        main_cfg, cwd_ready = get_main_config()
-        if args.subparser_name == 'data':
-            return args.func(main_cfg, cwd_ready)
-        elif args.subparser_name == 'edit':
-            return args.func(args, cwd_ready)
+        if args.subparser_name == 'list':
+            return args.func(args, is_cwd_ready())
         else:
-            return args.func(args, main_cfg, cwd_ready)
+            # Get main config here because we don't want to show logging when listing
+            main_cfg, cwd_ready = get_main_config()
+            if args.subparser_name == 'data':
+                return args.func(main_cfg, cwd_ready)
+            elif args.subparser_name == 'edit':
+                return args.func(args, cwd_ready)
+            else:
+                return args.func(args, main_cfg, cwd_ready)
+    except AssertionError as e:
+        # TODO (IMPORTANT): use same logic as in Darth-Vader-RPi
+        # TODO: add KeyboardInterruptError
+        logger.error(e)
+        return 1
 
 
 if __name__ == '__main__':
