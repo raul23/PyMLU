@@ -21,7 +21,7 @@ class Dataset:
     def __init__(self, builtin_dataset=None, custom_dataset=None,
                  use_custom_data=False, features=None, get_dummies=False,
                  random_seed=0, config=None, *args, **kwargs):
-        cfg = get_config_from_locals(config, locals())
+        cfg = get_config_from_locals(config, locals(), ignored_keys=['config'])
         global numpy, pandas
         logger.info("Importing numpy and pandas...")
         # Lazy import
@@ -203,24 +203,26 @@ class Dataset:
 def get_model(model_config=None, model_name=None, model_params=None,
               scale_input=False):
     # TODO: eventually check verbose and quiet (need access to log_dict)
+    cfg = get_config_from_locals(model_config, locals(),
+                                 ignored_keys=['model_config'])
     if not model_config:
-        if not model_name:
+        if not cfg.model_name:
             raise ValueError("model_name missing")
-        if not model_params:
+        if not cfg.model_params:
             raise ValueError("model_params missing")
-    logger.debug(f"Get model: {model_name}")
-    model_name_split = model_name.split('.')
+    logger.debug(f"Get model: {cfg.model_name}")
+    model_name_split = cfg.model_name.split('.')
     assert len(model_name_split), \
         "There should be three components to the model name. Only " \
-        f"{len(model_name)} provided: {model_name}"
+        f"{len(cfg.model_name)} provided: {cfg.model_name}"
     sklearn_module = '.'.join(model_name_split[:2])
     module_name = model_name_split[1]
     model_classname = model_name_split[2]
     if module_name in SKLEARN_MODULES:
-        logger.info(f"Importing {model_name}...")
+        logger.info(f"Importing {cfg.model_name}...")
         module = importlib.import_module(sklearn_module)
     else:
-        raise TypeError(f"The model name is invalid: {model_name}")
+        raise TypeError(f"The model name is invalid: {cfg.model_name}")
     if model_classname == 'HistGradientBoostingClassifier':
         # Note: this estimator is still experimental for now: To use it, you need to
         #       explicitly import enable_hist_gradient_boosting
@@ -231,14 +233,14 @@ def get_model(model_config=None, model_name=None, model_params=None,
     model_class = getattr(module, model_classname)
     logger.debug(f"Model imported: {model_class}")
     # Can either be base_estimator or estimator (equivalent)
-    base_estimator_cfg = model_params.get('base_estimator')
+    base_estimator_cfg = cfg.model_params.get('base_estimator')
     if base_estimator_cfg is None:
-        base_estimator_cfg = model_params.get('estimator')
-    estimators_cfg = model_params.get('estimators')
+        base_estimator_cfg = cfg.model_params.get('estimator')
+    estimators_cfg = cfg.model_params.get('estimators')
     if base_estimator_cfg:
         # e.g. AdaBoostClassifier
         base_model = get_model(**base_estimator_cfg)
-        model = model_class(base_model, **model_params)
+        model = model_class(base_model, **cfg.model_params)
     elif estimators_cfg:
         # e.g. StackingClassifier
         base_estimators = []
@@ -246,7 +248,7 @@ def get_model(model_config=None, model_name=None, model_params=None,
             estimator_name = ''.join(c for c in base_estimator_cfg['model_type']
                                      if c.isupper())
             base_estimators.append((estimator_name, get_model(**base_estimator_cfg)))
-        final_estimator_cfg = model_params.get('final_estimator')
+        final_estimator_cfg = cfg.model_params.get('final_estimator')
         final_estimator = None
         if final_estimator_cfg:
             final_estimator = get_model(**final_estimator_cfg)
@@ -257,8 +259,8 @@ def get_model(model_config=None, model_name=None, model_params=None,
                             final_estimator=final_estimator)
     else:
         # Only the ensemble method, e.g. RandomForestClassifier
-        model = model_class(**model_params)
-    if scale_input:
+        model = model_class(**cfg.model_params)
+    if cfg.scale_input:
         # Lazy import
         from sklearn.pipeline import make_pipeline
         from sklearn.preprocessing import StandardScaler
@@ -272,6 +274,6 @@ def get_model(model_config=None, model_name=None, model_params=None,
 
 
 # TODO: from example.py
-def train_models(new_config_dict=None, model_configs=None, quiet=None,
-                 verbose=None, logging_level=None):
+def train_models(main_config_dict=None, model_configs=None, quiet=False,
+                 verbose=False, logging_level=None):
     train(get_configs(**locals()))
