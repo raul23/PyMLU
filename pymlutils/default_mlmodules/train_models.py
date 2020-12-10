@@ -18,7 +18,7 @@ def train(configs):
         # Get model
         # ---------
         logger.info("")
-        logger.info(f"Model #{i}: {model_cfg.model.model_type}")
+        logger.info(f"Model #{i}: {model_cfg.model.model_name}")
         clf = ml.get_model(model_config=model_cfg.model)
 
         # -----------
