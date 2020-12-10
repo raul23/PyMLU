@@ -1,0 +1,460 @@
+#!/usr/bin/env python
+"""TODO
+"""
+import argparse
+import platform
+import os
+import sys
+
+import pymlu
+from pymlu import SKLEARN_MODULES
+from pymlu.genutils import (dict_to_bunch, get_config_dict,
+                            get_default_config_dict, get_logging_filepath,
+                            get_main_config_filepath,
+                            get_model_config_filepaths,
+                            get_model_configs_dirpath, get_module_filepath,
+                            init_log, list_model_info, run_cmd,
+                            load_cfg_dict, override_default_cfg_dict,
+                            setup_log, MODULE_NAMES)
+from mlmodules import train_models
+
+logger = init_log(__name__, __file__)
+logger_data = init_log('data')
+CWD_NOT_READY_MSG = "fatal: The current working directory is not initialized"
+
+
+# NOTE: https://stackoverflow.com/a/27163648 [launch PyCharm from terminal]
+def edit_file(filepath, app=None, create_if_not=False):
+    """Edit a file.
+
+    TODO: remove config
+
+    The user chooses the config file (`cfg_filepath`) to edit: the
+    `logging config file`_, `main config file`_ or a particular model
+    configuration file (e.g. LogisticRegression)
+
+    The configuration file can be opened by a user-specified application (`app`)
+    or a default program associated with this type of file (when `app` is
+    :obj:`None`).
+
+    Parameters
+    ----------
+    filepath : str
+        The configuration file to edit. The `logging config file`_,
+        `main config file`_ or a particular model configuration file (e.g.
+        LogisticRegression).
+    app : str, optional
+        Name of the application to use for opening the config file, e.g.
+        `TextEdit` (the default value is :obj:`None` which implies that the
+        default application will be used to open the config file).
+
+    Returns
+    -------
+    retcode : int
+        If there is a `subprocess
+        <https://docs.python.org/3/library/subprocess.html#subprocess.CalledProcessError>`_
+        -related error, the return code is non-zero. Otherwise, it is 0 if the
+        file can be successfully opened with an external program.
+
+    """
+    # Check if file exists
+    file_exists = os.path.exists(filepath)
+    if not file_exists and not create_if_not:
+        logger.error(f"The file doesn't exists: {filepath}")
+        return 1
+    # Command to open the config file with the default application in the
+    # OS or the user-specified app, e.g. `open filepath` in macOS opens the
+    # file with the default app (e.g. atom)
+    default_cmd_dict = {'Darwin': 'open {filepath}',
+                        'Linux': 'xdg-open {filepath}',
+                        'Windows': 'cmd /c start "" "{filepath}"'}
+    # NOTE: check https://bit.ly/31htaOT (pymotw) for output from
+    # platform.system on three OSes
+    default_cmd = default_cmd_dict.get(platform.system())
+    # NOTES:
+    # - `app is None` implies that the default app will be used
+    # - Otherwise, the user-specified app will be used
+    cmd = default_cmd if app is None else app + " " + filepath
+    retcode = 1
+    result = None
+    try:
+        # IMPORTANT: if the user provided the name of an app, it will be used as
+        # a command along with the file path, e.g. ``$ atom {filepath}``.
+        # However, this case might not work if the user provided an app name
+        # that doesn't refer to an executable, e.g. ``$ TextEdit {filepath}``
+        # won't work. The failed case is further processed in the except block.
+        result = run_cmd(cmd.format(filepath=filepath))
+        retcode = result.returncode
+    except FileNotFoundError:
+        # This error happens if the name of the app can't be called as an
+        # executable in the terminal
+        # e.g. `TextEdit` can't be run in the terminal but `atom` can since the
+        # latter refers to an executable.
+        # To open `TextEdit` from the terminal, the command ``open -a TextEdit``
+        # must be used on macOS.
+        # TODO: IMPORTANT add the open commands for the other OSes
+        specific_cmd_dict = {'Darwin': 'open -a {app}'.format(app=app)}
+        # Get the command to open the file with the user-specified app
+        cmd = specific_cmd_dict.get(platform.system(), app) + " " + filepath
+        # TODO: explain DEVNULL, suppress stderr since we will display the error
+        # TODO: IMPORTANT you might get a FileNotFoundError again?
+        result = run_cmd(cmd)  # stderr=subprocess.DEVNULL)
+        retcode = result.returncode
+    if retcode == 0:
+        if create_if_not:
+            logger.warning(f"The file doesn't exists but will be created: "
+                           f"{filepath}'")
+        logger.info("Opening the file {}...".format(
+            os.path.basename(filepath)))
+        logger.debug(f"Filepath: {filepath}")
+    else:
+        if result:
+            err = result.stderr.decode().strip()
+            logger.error(err)
+    return retcode
+
+
+def get_main_config():
+    cwd_ready = is_cwd_ready()
+    # -------------------------------------
+    # Get config filepath and setup logging
+    # -------------------------------------
+    if cwd_ready:
+        # Get config dict
+        main_cfg_dict = get_config_dict('main')
+    else:
+        # Get default config dict
+        main_cfg_dict = get_default_config_dict('main')
+    main_cfg = dict_to_bunch(main_cfg_dict)
+    setup_log(not cwd_ready, main_cfg.quiet, main_cfg.verbose)
+    return main_cfg, cwd_ready
+
+
+# Check the current working directory if it has already been initialized
+# TODO: is it robust enough?
+def is_cwd_ready():
+    try:
+        cwd_ready = True
+        from mlconfigs import config
+    except ImportError:
+        cwd_ready = False
+    return cwd_ready
+
+
+# ---------------------
+# Sub-command functions
+# ---------------------
+
+# Init cwd with configuration files and modules
+def parse_init_args(args, main_cfg, cwd_ready):
+    return 0
+
+
+# Data exploration
+# TODO: args not used
+def parse_data_args(main_cfg, cwd_ready):
+    if cwd_ready:
+        from mlmodules import explore_data
+        explore_data.explore(main_cfg)
+        return 0
+    else:
+        print(CWD_NOT_READY_MSG)
+        return 1
+
+
+# Edit configuration files
+def parse_edit_args(args, cwd_ready):
+    if not cwd_ready:
+        print(CWD_NOT_READY_MSG)
+        return 1
+    if args.filename in ['log', 'logging']:
+        filepath = get_logging_filepath()
+    elif args.filename in ['main', 'config']:
+        filepath = get_main_config_filepath()
+    elif args.filename in MODULE_NAMES:
+        filepath = get_module_filepath(args.filename)
+    else:
+        filepath, _ = get_model_config_filepaths(
+            root=get_model_configs_dirpath(), model_names=[args.filename])
+        assert len(filepath) <= 1, "More than one model configuration file" \
+                                   "were retrieved"
+        if filepath:
+            filepath = filepath[0]['filepath']
+        else:
+            logger.error(f"The model config file for '{args.filename}' "
+                         "could not be retrieved\nCheck the name or "
+                         "abbreviation of the model provided to the script")
+            return 1
+    edit_file(filepath, args.app)
+    return 0
+
+
+# List model categories and names
+def parse_list_args(args, cwd_ready):
+    if args.list_categories:
+        if cwd_ready:
+            list_model_info(show_all=False)
+        else:
+            print(CWD_NOT_READY_MSG)
+            return 1
+
+    if args.list_models:
+        if cwd_ready:
+            list_model_info()
+        else:
+            print(CWD_NOT_READY_MSG)
+            return 1
+
+    if args.list_all_categories:
+        list_model_info(use_cwd=False, show_all=False)
+
+    if args.list_all_models:
+        list_model_info(use_cwd=False)
+
+    return 0
+
+
+# Train models
+# TODO: don't need main_cfg
+def parse_train_args(args, main_cfg, cwd_ready):
+    cfg_data = {'cfg_filepaths': [], 'cfgs': []}
+    if not cwd_ready:
+        print(CWD_NOT_READY_MSG)
+        return 1
+    # --------------------------------------------------
+    # -c -t -m: categories, types and names of ML models
+    # --------------------------------------------------
+    if args.train_categories:
+        for cat in args.train_categories:
+            # TODO: check all ValueError which should be AssertionError
+            # TODO: add name of script __file__
+            assert cat in SKLEARN_MODULES, \
+                f"Invalid model category: {cat}. Run the script with 'list " \
+                "-c' to get the complete list of all the installed categories"
+    # if isinstance(args.categories, list) and not args.categories:
+    # TODO: fix following line (warning in PyCharm)
+    if args.train_categories == []:
+        logger.info("**All model categories selected**\n")
+        args.train_categories = SKLEARN_MODULES
+    args.model_type = 'classifiers' if args.model_type == 'clf' else 'regressors'
+    args.train_models = [] if args.train_models is None else args.train_models
+    # Path to the model_configs directory in the current working directory
+    model_configs_dirpath = get_model_configs_dirpath()
+    model_config_filepaths, model_names = get_model_config_filepaths(
+        model_configs_dirpath, args.train_categories, args.model_type,
+        args.train_models, '.py', ['__init__.py'])
+    assert model_config_filepaths, \
+        "No model config files could be retrieved. Check the model names " \
+        "provided to the script."
+    logger.debug(f"Retrieved {len(model_config_filepaths)} model config files")
+    for i, cfg_fp in enumerate(model_config_filepaths, start=1):
+        cfg_fp = cfg_fp['filepath']
+        if i == 1:
+            logger_data.debug("")
+        logger.debug(f"Model config #{i}: {os.path.basename(cfg_fp)}")
+        # logger_data.debug(f"{cfg_fp}")
+        # Get config dict
+        cfg_dict = load_cfg_dict(cfg_fp, 'main')
+        # Override default cfg dict with user-defined cfg dict
+        log_msgs = override_default_cfg_dict(cfg_dict, 'main')['main']
+        cfg_data['cfgs'].append(dict_to_bunch(cfg_dict))
+        cfg_data['cfg_filepaths'].append(cfg_fp)
+        if log_msgs:
+            logger.debug(f"{len(log_msgs)} option(s) overridden in main")
+            msg = f"# Overridden options in main"
+            equals_line = "# " + (len(msg) - 2) * "="
+            logger_data.debug(f"{equals_line}\n{msg}\n{equals_line}")
+            for msg in log_msgs:
+                logger_data.debug(msg)
+            logger_data.debug("")
+    if model_names:
+        if cfg_data['cfgs']:
+            logger_func = logger.warning
+        else:
+            logger_func = logger.error
+        logger_func("Couldn't find the config file for the following "
+                    f"models: {model_names}")
+        logger.info(f"Check the name or abbreviation of the models provided to "
+                    "the script")
+        logger_data.info("")
+    train_models.train(cfg_data['cfgs'])
+    return 0
+
+
+def setup_argparser():
+    """Setup the argument parser for the command-line script.
+
+    Returns
+    -------
+    parser : argparse.ArgumentParser
+        Argument parser.
+
+    """
+    # Setup the parser
+    parser = argparse.ArgumentParser(
+        description='''\
+This program can perform the following tasks:
+* initialize the cwd with a configuration folder and modules (init)
+* perform data exploration (data)
+* edit a file (edit)
+* list the installed model categories and names (list) 
+* train models (train)
+
+Each of these tasks is associated with a subcommand (name within
+parentheses).
+''',
+        formatter_class=argparse.RawDescriptionHelpFormatter)
+    # ===============
+    # General options
+    # ===============
+    # TODO: package name too? instead of program name (e.g. train_models.py)
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s v{}'.format(pymlu.__version__))
+    subparsers = parser.add_subparsers(
+        title='subcommands', description=None, dest='subparser_name',
+        help=None)
+    # ====================================
+    # Initialize current working directory
+    # ====================================
+    # create the parser for the "init" command
+    parser_init = subparsers.add_parser('init',
+        help='''Initialize the current working directory with the configuration
+        folder and the modules for doing data exploration and training models.
+        IMPORTANT: if no other arguments is provided then all configuration
+        files will be generated.''')
+    parser_init.add_argument(
+        '-c', dest='init_categories', nargs='+', metavar='CATEGORY',
+        help=f'''Categories of ML models for which configuration files will be
+        generated in the current working directory. These correspond to sklearn
+        packages of ML models, e.g. ensemble or linear_model. Use the
+        subcommand 'list -C' to show a complete list of all the supported
+        categories of ML models found in {pymlu.__name__}.''')
+    parser_init.add_argument(
+        '-m', dest='init_models', nargs='+', metavar='MODEL',
+        help=f'''Names of ML models for which configuration files will be
+        generated in the current working directory. These correspond to sklearn
+        classes of ML models, e.g. SVC or AdaBoostClassifier. Use the
+        subcommand 'list -M' to show a complete list of all the supported ML
+        models found in {pymlu.__name__}. It also accepts model name
+        abbreviations (e.g. ABC for AdaBoostClassifier) as shown in the list.
+        ''')
+    parser_init.add_argument(
+        '-t', dest='init_type', choices=['clf', 'reg'], default=None,
+        help='''The type of model for which configuration files will be
+        generated in the current working directory where 'clf' is for
+        classifier and 'reg' is for regressor''')
+    parser_init.add_argument(
+        '-o', dest='overwrite', action='store_true',
+        help='''Overwrite existing files and folders generated from a previous
+        run of the program''')
+    parser_init.set_defaults(func=parse_init_args)
+    # ================
+    # Data exploration
+    # ================
+    # create the parser for the "data" command
+    parser_data = subparsers.add_parser('data',
+        help='''Perform data exploration of a dataset as defined in the main
+        configuration file (config.py)''')
+    parser_data.set_defaults(func=parse_data_args)
+    # ==========
+    # Edit files
+    # ==========
+    # create the parser for the "edit" command
+    parser_edit = subparsers.add_parser(
+        'edit', help='''Edit a configuration file or module''')
+    parser_edit.add_argument(
+        'filename',
+        help='''Name of a file to edit which can either be the main
+        configuration file ('config'), logging configuration file ('log'), a
+        particular model configuration file (e.g. LogisticRegression) or a
+        module ({'explore_data', 'train_models'}). It also accepts model name
+        abbreviations as shown in the list of ML models ('list -m').''')
+    parser_edit.add_argument(
+        '-a', '--app', metavar='NAME',
+        required='-e' in sys.argv or '--edit' in sys.argv,
+        help='''Name of the application to use for editing the file. If no name
+        is given, then the default application for opening this type of file
+        will be used.''')
+    parser_edit.set_defaults(func=parse_edit_args)
+    # ===============================
+    # List model categories and names
+    # ===============================
+    # create the parser for the "list" command
+    parser_list = subparsers.add_parser(
+        'list', help='''List model categories and names''')
+    group_list = parser_list.add_mutually_exclusive_group(required=True)
+    group_list.add_argument(
+        '-c', dest='list_categories', action='store_true',
+        help='''Show a list of all the categories of ML models found in the
+        CURRENT WORKING DIRECTORY''')
+    group_list.add_argument(
+        '-m', dest='list_models', action='store_true',
+        help='''Show a list of all the ML models found in the CURRENT WORKING
+        DIRECTORY''')
+    group_list.add_argument(
+        '-C', dest='list_all_categories',
+        action='store_true',
+        help=f'''Show a list of all the SUPPORTED categories of ML models found
+        in {pymlu.__name__}''')
+    group_list.add_argument(
+        '-M', dest='list_all_models',
+        action='store_true',
+        help=f'''Show a list of all the SUPPORTED ML models found in
+        {pymlu.__name__}''')
+    parser_list.set_defaults(func=parse_list_args)
+    # ============
+    # Train models
+    # ============
+    # create the parser for the "train" command
+    parser_train = subparsers.add_parser('train', help='''Train models''')
+    parser_train.add_argument(
+        'model_type', choices=['clf', 'reg'],
+        default=None,
+        help='''The type of models that will be trained where 'clf' is for
+            classifier and 'reg' is for regressor''')
+    # TODO: use os.path.basename(__file__) in help
+    parser_train.add_argument(
+        '-c', dest='train_categories', nargs='*',
+        metavar='CATEGORY',
+        help='''Categories of ML models that will be trained. These correspond
+        to sklearn packages of ML models, e.g. ensemble or linear_model. Use
+        the subcommand 'list -c' to show a list of the categories of ML models
+        found in the current working directory. IMPORTANT: if no arguments is
+        provided to -c, then all categories found in the current working
+        directory will be selected''')
+    parser_train.add_argument(
+        '-m', dest='train_models', nargs='+',
+        metavar='MODEL',
+        help='''Names of ML models that will be trained. These correspond to
+        sklearn classes of ML models, e.g. SVC or AdaBoostClassifier. It also
+        accepts model name abbreviations as shown in the list of ML models
+        ('list -m').''')
+    parser_train.set_defaults(func=parse_train_args)
+    return parser
+
+
+def main():
+    try:
+        parser = setup_argparser()
+        args = parser.parse_args()
+
+        if args.subparser_name == 'list':
+            return args.func(args, is_cwd_ready())
+        else:
+            # Get main config here because we don't want to show logging when listing
+            main_cfg, cwd_ready = get_main_config()
+            if args.subparser_name == 'data':
+                return args.func(main_cfg, cwd_ready)
+            elif args.subparser_name == 'edit':
+                return args.func(args, cwd_ready)
+            else:
+                return args.func(args, main_cfg, cwd_ready)
+    except AssertionError as e:
+        # TODO (IMPORTANT): use same logic as in Darth-Vader-RPi
+        # TODO: add KeyboardInterruptError
+        logger.error(e)
+        return 1
+
+
+if __name__ == '__main__':
+    main()
