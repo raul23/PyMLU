@@ -37,6 +37,15 @@ logger_data = logging.getLogger('data')
 logger_data.addHandler(NullHandler())
 
 CFG_TYPES = ['main', 'log']
+DEFAULT_ABBREVIATIONS = {
+    'CategoricalNB': 'CatNB',
+    'ComplementNB': 'ComNB',
+    'ExtraTreeClassifier': 'ETC',
+    'ExtraTreesClassifier': 'EETC',
+    'ExtraTreeRegressor': 'ETR',
+    'ExtraTreesRegressr': 'EETR',
+    'LinearRegression': 'LiR',
+    'LogisticRegression': 'LoR'}
 MODULE_NAMES = ['explore_data', 'train_models']
 
 
@@ -379,6 +388,18 @@ def get_settings(conf, cfg_type):
         raise ValueError(f"Invalid cfg_type: {cfg_type}")
 
 
+def get_short_model_name(model_name):
+    def get_acronym(compound_word):
+        return ''.join([l for l in compound_word if not l.islower()])
+
+    if DEFAULT_ABBREVIATIONS.get(model_name):
+        short_name = DEFAULT_ABBREVIATIONS.get(model_name)
+    else:
+        acronym = get_acronym(model_name)
+        short_name = acronym
+    return short_name
+
+
 def init_log(module__name__, module___file__=None, package_name=None):
     if module___file__:
         logger_ = logging.getLogger(get_logger_name(module__name__,
@@ -414,15 +435,6 @@ def is_substring(string, substrings, lower=True):
 def list_model_info(use_cwd=True, show_all=True):
     msgs = []
     abbr_dict = {}
-    abbreviations = {
-        'CategoricalNB': 'CatNB',
-        'ComplementNB': 'ComNB',
-        'ExtraTreeClassifier': 'ETC',
-        'ExtraTreesClassifier': 'EETC',
-        'ExtraTreeRegressor': 'ETR',
-        'ExtraTreesRegressr': 'EETR',
-        'LinearRegression': 'LiR',
-        'LogisticRegression': 'LoR'}
     if show_all:
         title = "***List of model categories and names***"
     else:
@@ -472,20 +484,7 @@ def list_model_info(use_cwd=True, show_all=True):
                             # i.e. classifiers or regressors
                             model_type = os.path.basename(path)
                             msgs.append(f"\t* {model_type}")
-
-                        def get_acronym(compound_word):
-                            return ''.join([l for l in compound_word if not l.islower()])
-
-                        if abbreviations.get(model_name):
-                            short_name = abbreviations.get(model_name)
-                        else:
-                            acronym = get_acronym(model_name)
-                            i = 1
-                            while acronym in acronyms:
-                                acronym = f"{acronym}{i}"
-                                i += 1
-                            acronyms.append(acronym)
-                            short_name = acronym
+                        short_name = get_short_model_name(model_name)
                         msgs.append(f"\t    - {model_name} [{short_name}]")
                         abbr_dict.setdefault(short_name.lower(), model_name)
             msgs.append("")
@@ -495,23 +494,7 @@ def list_model_info(use_cwd=True, show_all=True):
               "abbreviation\n"
         msgs.append(msg)
         msgs.append(source_msg)
-    # TODO: print_and_wait()
-    idx_start = 0
-    n_lines = 25
-    try:
-        while True:
-            group_msgs = msgs[idx_start:idx_start+n_lines]
-            idx_start += n_lines
-            for msg in group_msgs:
-                print(msg)
-            if idx_start >= len(msgs):
-                break
-            input("Press ENTER to continue (or Ctrl+C to exit)...")
-            # Ref.: https://stackoverflow.com/a/52590238/14664104
-            sys.stdout.write('\x1b[1A')
-            sys.stdout.write('\x1b[2K')
-    except KeyboardInterrupt:
-        print("")
+    print_and_wait(msgs)
     return abbr_dict
 
 
@@ -599,6 +582,24 @@ def namespace_to_dict(ns):
         if isinstance(v, dict):
             namespace_to_dict(v)
     return adict
+
+
+def print_and_wait(msgs, n_lines=25):
+    idx_start = 0
+    try:
+        while True:
+            group_msgs = msgs[idx_start:idx_start + n_lines]
+            idx_start += n_lines
+            for msg in group_msgs:
+                print(msg)
+            if idx_start >= len(msgs):
+                break
+            input("Press ENTER to continue (or Ctrl+C to exit)...")
+            # Ref.: https://stackoverflow.com/a/52590238/14664104
+            sys.stdout.write('\x1b[1A')
+            sys.stdout.write('\x1b[2K')
+    except KeyboardInterrupt:
+        print("")
 
 
 def run_cmd(cmd):
