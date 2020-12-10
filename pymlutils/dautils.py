@@ -24,7 +24,7 @@ class DataExplorer:
                  valid_head=5, test_head=5, data_isnull=True,
                  train_isnull=True, valid_isnull=True, test_isnull=True,
                  config=None, *args, **kwargs):
-        cfg = get_config_from_locals(config, locals())
+        cfg = get_config_from_locals(config, locals(), ignored_keys=['config'])
         global pandas
         logger.info("Importing pandas...")
         # Lazy import
