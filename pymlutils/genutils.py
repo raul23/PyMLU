@@ -23,6 +23,7 @@ from pymlutils import (CONFIGS_DIRNAME, MODEL_CONFIGS_DIRNAME,
                        MODEL_FNAME_SUFFIX, MODULES_DIRNAME, SKLEARN_MODULES)
 
 
+# TODO: move it at the bottom
 # Ref.: https://stackoverflow.com/a/26433913/14664104
 def warning_on_one_line(message, category, filename, lineno, line=None):
     return '%s:%s: %s: %s\n' % (filename, lineno, category.__name__, message)
@@ -259,25 +260,35 @@ def get_config_dict(cfg_type='main'):
     return load_cfg_dict(cfg_filepath, cfg_type)
 
 
-def get_config_from_locals(config, locals_dict):
-    if config:
-        for k, v in list(config.items()):
-            if k not in locals_dict:
-                del config[k]
-        cfg = config
+def get_config_from_locals(config, locals_dict, ignored_keys=None):
+    locals_dict_copy = locals_dict.copy()
+    default_ignored_keys = {'args', 'kwargs', 'ipdb', 'self'}
+    if ignored_keys:
+        ignored_keys = set(ignored_keys)
+        ignored_keys.update(default_ignored_keys)
     else:
-        locals_dict_copy = locals_dict.copy()
-        del locals_dict_copy['self']
-        if locals_dict_copy.get('ipdb'):
-            del locals_dict_copy['ipdb']
+        ignored_keys = default_ignored_keys
+    for k in ignored_keys:
+        if locals_dict_copy.get(k):
+            del locals_dict_copy[k]
+    if config:
+        new_config = {}
+        locals_keys = locals_dict_copy.keys()
+        for k in locals_keys:
+            if k in config:
+                new_config[k] = config[k]
+            else:
+                new_config[k] = locals_dict_copy[k]
+        cfg = dict_to_bunch(new_config)
+    else:
         cfg = dict_to_bunch(locals_dict_copy)
     return cfg
 
 
-def get_configs(new_config_dict=None, model_configs=None, quiet=None,
-                verbose=None, logging_level=None):
+def get_configs(main_config_dict=None, model_configs=None, quiet=False,
+                verbose=False, logging_level=None):
     # Update default config dict
-    cfgs = update_default_config(new_config_dict, model_configs)
+    cfgs = update_default_config(main_config_dict, model_configs)
     if quiet is None and cfgs:
         quiet = cfgs[0]['quiet']
     if verbose is None and cfgs:
@@ -354,14 +365,14 @@ def get_model_config_filepaths(root, categories=None, model_type=None,
                             current_short_name.lower() == name.lower():
                         model_name_found = True
                         break
-
             else:
                 model_name_found = current_model_name in model_names \
                                    or current_short_name in model_names
-            if model_name_found and model_type and model_type != current_model_type:
-                raise ValueError(f"Trying to train a model ({current_model_name}) "
-                                 "that is different from the specified model_type "
-                                 f"({model_type})")
+            if model_name_found and model_type:
+                # TODO (IMPORTANT): mention assert in notes
+                assert model_type == current_model_type, \
+                    f"Trying to train a model ({current_model_name}) that is " \
+                    "different from the specified model type ({model_type})"
             if model_name_found or (current_model_type==model_type and
                                     current_model_category in categories) or \
                 (model_type is None and current_model_category in categories):
@@ -586,6 +597,31 @@ def namespace_to_dict(ns):
         if isinstance(v, dict):
             namespace_to_dict(v)
     return adict
+
+
+def override_default_cfg_dict(new_cfg_dict, cfg_type):
+    log_msgs = {'main': [], 'log': []}
+    # Get default cfg dict
+    if cfg_type == 'main':
+        default_cfg_dict = load_cfg_dict(get_main_config_filepath(), cfg_type)
+    elif cfg_type == 'log':
+        # cfg_type = 'log'
+        default_cfg_dict = load_cfg_dict(get_logging_filepath(), cfg_type)
+    else:
+        # TODO: raise AssertionError (check other places)
+        raise ValueError(f"Invalid cfg_type: {cfg_type}")
+    for k, v in default_cfg_dict.items():
+        if new_cfg_dict.get(k) is None:
+            new_cfg_dict[k] = v
+        else:
+            if new_cfg_dict[k] != v:
+                if len(f"{v}") > 65 or len(f"{new_cfg_dict[k]}") > 65:
+                    msg = f"** {k} **:\n{v}\n| -> {new_cfg_dict[k]}"
+                else:
+                    msg = f"** {k} **: {v} -> {new_cfg_dict[k]}"
+                log_msgs[cfg_type].append(msg)
+                v = new_cfg_dict[k]
+    return log_msgs
 
 
 def print_and_wait(msgs, n_lines=25):
