@@ -325,7 +325,7 @@ def get_logger_name(module__name__, module___file__, package_name=None):
 # TODO: use file_pattern (regex)
 def get_model_config_filepaths(root, categories=None, model_type=None,
                                model_names=None, fname_suffix=MODEL_FNAME_SUFFIX,
-                               ignore_fnames=None, lower_model_names=True):
+                               ignore_fnames=None, lower_model_names=False):
     categories = [] if categories is None else categories
     model_names = [] if model_names is None else model_names
     ignore_fnames = [] if ignore_fnames is None else ignore_fnames
@@ -344,16 +344,20 @@ def get_model_config_filepaths(root, categories=None, model_type=None,
             # Search the fname for one of the model_names
             # TODO: add it in a function (used somewhere else too)
             current_model_name = os.path.basename(fname).split(MODEL_FNAME_SUFFIX)[0]
+            current_short_name = get_short_model_name(current_model_name)
             current_model_type = os.path.basename(path)
             current_model_category = os.path.basename(os.path.dirname(path))
             if lower_model_names:
                 model_name_found = False
                 for name in model_names:
-                    if current_model_name.lower() == name.lower():
+                    if current_model_name.lower() == name.lower() or \
+                            current_short_name.lower() == name.lower():
                         model_name_found = True
                         break
+
             else:
-                model_name_found = current_model_name in model_names
+                model_name_found = current_model_name in model_names \
+                                   or current_short_name in model_names
             if model_name_found and model_type and model_type != current_model_type:
                 raise ValueError(f"Trying to train a model ({current_model_name}) "
                                  "that is different from the specified model_type "
