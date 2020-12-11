@@ -2,7 +2,7 @@
 README (WORK IN PROGRESS)
 =========================
 
-**pymlu** is a library of common Python utilities for data analysis and machine learning.
+**pymlu** is a library of common Python utilities for data analysis and machine learning built on top of the excellent scikit-learn library.
 
 The ``pymlu`` package contains utilities divided into different modules
 based on their main application. For example, the `dautils`_ module defines
