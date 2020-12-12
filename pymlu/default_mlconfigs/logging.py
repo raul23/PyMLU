@@ -5,7 +5,11 @@ logging = {
     {
         "console":
         {
-          "format": "[%(name)-30s] | %(levelname)-8s | %(message)s"
+          "format": "%(name)-{auto_field_width}s | %(levelname)-8s | %(message)s"
+        },
+        "console_time":
+        {
+          "format": "%(asctime)s | %(levelname)-8s | %(message)s"
         },
         "only_msg":
         {
@@ -15,19 +19,35 @@ logging = {
         {
           "format": "%(levelname)-8s %(message)s"
         },
+        "simple2":
+        {
+          "format": "%(levelname)-8s | %(message)s"
+        },
         "verbose":
         {
-          "format": "%(asctime)s | %(name)-42s | %(levelname)-8s | %(message)s"
+          "format": "%(asctime)s | %(name)-{auto_field_width}s | %(levelname)-8s | %(message)s"
         }
     },
 
     "handlers":
     {
-        "console":
+        # --------------------
+        # User-defined handler
+        # --------------------
+        "console_for_users":
         {
           "level": "INFO",
           "class": "logging.StreamHandler",
-          "formatter": "simple"
+          "formatter": "only_msg"
+        },
+        # ------------------
+        # Debugging handlers
+        # ------------------
+        "console":
+        {
+          "level": "WARNING",
+          "class": "logging.StreamHandler",
+          "formatter": "only_msg"
         },
         "console_only_msg":
         {
@@ -48,40 +68,64 @@ logging = {
 
     "loggers":
     {
-        "data":
-        {
-          "level": "DEBUG",
-          "handlers": ["console_only_msg"],
-          "propagate": False
-        },
+        # ---------------------------------------
+        # Loggers using console_for_users handler
+        # ---------------------------------------
         "default_mlmodules.explore_data":
         {
           "level": "DEBUG",
-          "handlers": ["console"],
+          "handlers": ["console_for_users"],
           "propagate": False
         },
         "default_mlmodules.train_models":
         {
           "level": "DEBUG",
-          "handlers": ["console"],
+          "handlers": ["console_for_users"],
           "propagate": False
         },
         "mlmodules.explore_data":
         {
           "level": "DEBUG",
-          "handlers": ["console"],
+          "handlers": ["console_for_users"],
           "propagate": False
         },
         "mlmodules.train_models":
         {
           "level": "DEBUG",
-          "handlers": ["console"],
+          "handlers": ["console_for_users"],
           "propagate": False
         },
         "pymlu.dautils":
         {
           "level": "DEBUG",
-          "handlers": ["console"],
+          "handlers": ["console_for_users"],
+          "propagate": False
+        },
+        "pymlu.mlutils":
+        {
+          "level": "DEBUG",
+          "handlers": ["console_for_users"],
+          "propagate": False
+        },
+        "scripts.mlearn":
+        {
+          "level": "DEBUG",
+          "handlers": ["console_for_users"],
+          "propagate": False
+        },
+        # ---------------------------------------------------
+        # Loggers using console and console_only_msg handlers
+        # ---------------------------------------------------
+        "data":
+        {
+          "level": "INFO",
+          "handlers": ["console_only_msg"],
+          "propagate": False
+        },
+        "data_mlearn":
+        {
+          "level": "DEBUG",
+          "handlers": ["console_only_msg"],
           "propagate": False
         },
         "pymlu.genutils":
@@ -90,18 +134,6 @@ logging = {
           "handlers": ["console"],
           "propagate": False
         },
-        "pymlu.mlutils":
-        {
-          "level": "DEBUG",
-          "handlers": ["console"],
-          "propagate": False
-        },
-        "scripts.mlearn":
-        {
-          "level": "DEBUG",
-          "handlers": ["console"],
-          "propagate": False
-        }
     },
 
     "root":
