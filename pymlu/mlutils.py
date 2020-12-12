@@ -5,8 +5,8 @@ import logging
 from logging import NullHandler
 
 from pymlu import SKLEARN_MODULES
-from pymlu.genutils import get_config_from_locals, get_configs
 from pymlu.default_mlmodules.train_models import train
+from pymlu.genutils import get_config_from_locals, get_configs
 
 numpy = None
 pandas = None
@@ -23,10 +23,9 @@ class Dataset:
     def __init__(self, builtin_dataset=None, custom_dataset=None,
                  use_custom_data=False, features=None, get_dummies=False,
                  random_seed=0, config=None, *args, **kwargs):
-        logger.info("Loading dataset")
         cfg = get_config_from_locals(config, locals(), ignored_keys=['config'])
         global numpy, pandas
-        logger.info("Importing numpy and pandas...")
+        logger.debug("Importing numpy and pandas...")
         # Lazy import
         import numpy
         import pandas
@@ -83,9 +82,9 @@ class Dataset:
         for data_type in self.data_types:
             X_data, y_data = self.get_data(data_type)
             if X_data is not None:
-                logger.info(f"X_{data_type} shape: {X_data.shape}")
+                logger.debug(f"X_{data_type} shape: {X_data.shape}")
             if y_data is not None:
-                logger.info(f"y_{data_type} shape: {y_data.shape}")
+                logger.debug(f"y_{data_type} shape: {y_data.shape}")
 
     def get_data(self, data_type):
         try:
@@ -128,7 +127,7 @@ class Dataset:
     # One-hot encode the data
     def _get_dummies(self):
         # Replace missing values on train and test
-        logger.info("One-hot encoding the data")
+        logger.debug("One-hot encoding the data")
         self.X_train = pandas.get_dummies(self.X_train)
         self.X_test = pandas.get_dummies(self.X_test)
 
@@ -174,8 +173,8 @@ class Dataset:
         # Load dataset
         # ------------
         # Load train data
-        logger.info("Loading training data...")
-        logger.debug(f"Train filepath: {self.custom_dataset.train_filepath}")
+        logger.debug("Loading training data...")
+        logger.info(f"Train filepath: {self.custom_dataset.train_filepath}")
         train_data = pandas.read_csv(self.custom_dataset.train_filepath)
         if not self.features:
             self.features = train_data.columns.to_list()
@@ -187,8 +186,8 @@ class Dataset:
         X = train_data
         self.y_train = train_data[self.custom_dataset.y_target]
         # Load test data
-        logger.info("Loading test data...")
-        logger.debug(f"Test filepath: {self.custom_dataset.test_filepath}")
+        logger.debug("Loading test data...")
+        logger.info(f"Test filepath: {self.custom_dataset.test_filepath}")
         X_test = pandas.read_csv(self.custom_dataset.test_filepath)
         # ------------------
         # Features selection
@@ -222,7 +221,7 @@ def get_model(model_config=None, model_name=None, model_params=None,
     module_name = model_name_split[1]
     model_classname = model_name_split[2]
     if module_name in SKLEARN_MODULES:
-        logger.info(f"Importing {cfg.model_name}...")
+        logger.debug(f"Importing {cfg.model_name}...")
         module = importlib.import_module(sklearn_module)
     else:
         raise TypeError(f"The model name is invalid: {cfg.model_name}")
@@ -231,7 +230,7 @@ def get_model(model_config=None, model_name=None, model_params=None,
         #       explicitly import enable_hist_gradient_boosting
         # Ref.: https://bit.ly/3ldqWKp
         exp_module_name = 'sklearn.experimental.enable_hist_gradient_boosting'
-        logger.info(f"Importing experimental module: {exp_module_name}")
+        logger.debug(f"Importing experimental module: {exp_module_name}")
         importlib.import_module(exp_module_name)
     model_class = getattr(module, model_classname)
     logger.debug(f"Model imported: {model_class}")
@@ -278,5 +277,5 @@ def get_model(model_config=None, model_name=None, model_params=None,
 
 # TODO: from example.py
 def train_models(main_config_dict=None, model_configs=None, quiet=False,
-                 verbose=False, logging_level=None):
+                 verbose=False, logging_level=None, logging_formatter=None):
     train(get_configs(**locals()))
