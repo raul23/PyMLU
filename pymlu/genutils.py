@@ -231,6 +231,7 @@ def copy_files(src_dirpath, dest_dirpath, width=(1,1), file_pattern='*.*',
             shutil.copy(fp, dest)
 
 
+# TODO: adict can also be a list of dicts, see get_configs()
 def dict_to_bunch(adict):
     # Lazy import
     from sklearn.utils import Bunch
@@ -286,7 +287,7 @@ def get_config_from_locals(config, locals_dict, ignored_keys=None):
 
 
 def get_configs(main_config_dict=None, model_configs=None, quiet=False,
-                verbose=False, logging_level=None):
+                verbose=False, logging_level=None, logging_formatter=None):
     # Update default config dict
     cfgs = update_default_config(main_config_dict, model_configs)
     if quiet is None and cfgs:
@@ -294,8 +295,9 @@ def get_configs(main_config_dict=None, model_configs=None, quiet=False,
     if verbose is None and cfgs:
         verbose = cfgs[0]['verbose']
     setup_log(use_default_log=True, quiet=quiet, verbose=verbose,
-              logging_level=logging_level)
-    return cfgs
+              logging_level=logging_level.upper(),
+              logging_formatter=logging_formatter)
+    return dict_to_bunch(cfgs)
 
 
 def get_default_config_dict(cfg_type='main'):
@@ -388,6 +390,7 @@ def get_model_config_filepaths(root, categories=None, model_type=None,
 
 def get_settings(conf, cfg_type):
     if cfg_type == 'log':
+        set_logging_field_width(conf['logging'])
         return conf['logging']
     elif cfg_type == 'main':
         _settings = {}
@@ -685,15 +688,43 @@ def run_cmd(cmd):
         return result
 
 
-def set_logging_level(log_dict, level='DEBUG'):
+# TODO: specify log_dict change inline
+def set_logging_field_width(log_dict):
+    names = log_dict['loggers'].keys()
+    if sys.argv and os.path.basename(sys.argv[0]) == 'mlearn':
+        names = [n for n in names if not n.startswith('default_')]
+    size_longest_name = len(max(names, key=len))
+    for k, v in log_dict['formatters'].items():
+        try:
+            # TODO: add auto_field_width at the top
+            v['format'] = v['format'].format(auto_field_width=size_longest_name)
+        except KeyError:
+            continue
+
+
+def set_logging_formatter(log_dict, handler_names, formatter='simple'):
+    # TODO: assert hander_names and formatter
+    for handler_name in handler_names:
+        log_dict['handlers'][handler_name]['formatter'] = formatter
+
+
+def set_logging_level(log_dict, handler_names=None, logger_names=None,
+                      level='DEBUG'):
+    # TODO: assert handler_names, logger_names and level
+    handler_names = handler_names if handler_names else []
+    logger_names = logger_names if logger_names else []
     keys = ['handlers', 'loggers']
     for k in keys:
         for name, val in log_dict[k].items():
-            val['level'] = level
+            if (not handler_names and not logger_names) or \
+                    (k == 'handlers' and name in handler_names) or \
+                    (k == 'loggers' and name in logger_names):
+                val['level'] = level
 
 
 def setup_log(use_default_log=False, quiet=False, verbose=False,
-              logging_level=None):
+              logging_level=None, logging_formatter=None):
+    logging_level = logging_level.upper()
     package_path = os.getcwd()
     if use_default_log:
         log_filepath = get_default_logging_filepath()
@@ -709,9 +740,14 @@ def setup_log(use_default_log=False, quiet=False, verbose=False,
     # TODO: get first cfg_dict to setup log (same in train_models.py)
     if not quiet:
         if verbose:
-            set_logging_level(log_dict)
+            set_logging_level(log_dict, level='DEBUG')
         if logging_level:
-            set_logging_level(log_dict, level=logging_level)
+            # TODO: add console_for_users at the top
+            set_logging_level(log_dict, handler_names=['console_for_users'],
+                              logger_names=['data'], level=logging_level)
+        if logging_formatter:
+            set_logging_formatter(log_dict, handler_names=['console_for_users'],
+                                  formatter=logging_formatter)
         # Load logging config dict
         logging.config.dictConfig(log_dict)
     # =============
@@ -726,17 +762,23 @@ def setup_log(use_default_log=False, quiet=False, verbose=False,
 
 
 def update_default_config(new_data, model_configs=None):
+    model_configs = model_configs if model_configs else []
+    # TODO: show overriden options like with 'mlearn train'?
+    # TODO: maybe instead explain that no because situation is different (we are working on kaggle)
     cfg_dicts = []
     # Get default main config dict
     default_cfg = get_default_config_dict()
     # Update default config dict wth new_data
     default_cfg.update(new_data)
     # Update default config dict with model_config_dicts
-    for m_cfg in model_configs:
-        # TODO: copy?
-        default_cfg_copy = copy.deepcopy(default_cfg)
-        default_cfg_copy.update({'model': m_cfg})
-        cfg_dicts.append(default_cfg_copy)
+    if model_configs:
+        for m_cfg in model_configs:
+            # TODO: copy?
+            default_cfg_copy = copy.deepcopy(default_cfg)
+            default_cfg_copy.update({'model': m_cfg})
+            cfg_dicts.append(default_cfg_copy)
+    else:
+        cfg_dicts.append(default_cfg)
     return cfg_dicts
 
 
