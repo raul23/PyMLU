@@ -4,7 +4,8 @@ import copy
 import logging
 from logging import NullHandler
 
-from pymlu.genutils import get_config_from_locals
+from pymlu.default_mlmodules.explore_data import explore
+from pymlu.genutils import get_config_from_locals, get_configs
 from pymlu.mlutils import Dataset
 
 pandas = None
@@ -26,7 +27,7 @@ class DataExplorer:
                  config=None, *args, **kwargs):
         cfg = get_config_from_locals(config, locals(), ignored_keys=['config'])
         global pandas
-        logger.info("Importing pandas...")
+        logger.debug("Importing pandas...")
         # Lazy import
         import pandas
         self.builtin_dataset = cfg.builtin_dataset
@@ -45,8 +46,10 @@ class DataExplorer:
         # ---------
         # Load data
         # ---------
+        logger.info("Loading dataset")
         self.dataset = Dataset(cfg.builtin_dataset, cfg.custom_dataset,
                                cfg.use_custom_data)
+        logger_data.info("")
 
     def compute_stats(self):
         for data_type in self.dataset.data_types:
@@ -154,3 +157,8 @@ def compute_stats(data, name='data', include_strings=False,
         logger.warning("All the data columns were removed! Skipping computing "
                        f"stats for {name}.")
     logger_data.info("")
+
+
+def explore_data(main_config_dict=None, model_configs=None, quiet=False,
+                 verbose=False, logging_level=None, logging_formatter=None):
+    explore(get_configs(**locals())[0])
