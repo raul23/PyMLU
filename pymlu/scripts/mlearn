@@ -19,7 +19,7 @@ from pymlu.genutils import (dict_to_bunch, get_config_dict,
 from mlmodules import train_models
 
 logger = init_log(__name__, __file__)
-logger_data = init_log('data')
+logger_data = init_log('data_mlearn')
 CWD_NOT_READY_MSG = "fatal: The current working directory is not initialized"
 
 
@@ -114,7 +114,7 @@ def edit_file(filepath, app=None, create_if_not=False):
     return retcode
 
 
-def get_main_config():
+def get_main_config(args):
     cwd_ready = is_cwd_ready()
     # -------------------------------------
     # Get config filepath and setup logging
@@ -126,7 +126,9 @@ def get_main_config():
         # Get default config dict
         main_cfg_dict = get_default_config_dict('main')
     main_cfg = dict_to_bunch(main_cfg_dict)
-    setup_log(not cwd_ready, main_cfg.quiet, main_cfg.verbose)
+    setup_log(not cwd_ready, main_cfg.quiet, main_cfg.verbose,
+              logging_level=args.logging_level,
+              logging_formatter=args.logging_formatter)
     return main_cfg, cwd_ready
 
 
@@ -234,7 +236,7 @@ def parse_train_args(args, main_cfg, cwd_ready):
     # if isinstance(args.categories, list) and not args.categories:
     # TODO: fix following line (warning in PyCharm)
     if args.train_categories == []:
-        logger.info("**All model categories selected**\n")
+        logger.debug("**All model categories selected**\n")
         args.train_categories = SKLEARN_MODULES
     args.model_type = 'classifiers' if args.model_type == 'clf' else 'regressors'
     args.train_models = [] if args.train_models is None else args.train_models
@@ -247,10 +249,9 @@ def parse_train_args(args, main_cfg, cwd_ready):
         "No model config files could be retrieved. Check the model names " \
         "provided to the script."
     logger.debug(f"Retrieved {len(model_config_filepaths)} model config files")
+    logger.debug("")
     for i, cfg_fp in enumerate(model_config_filepaths, start=1):
         cfg_fp = cfg_fp['filepath']
-        if i == 1:
-            logger_data.debug("")
         logger.debug(f"Model config #{i}: {os.path.basename(cfg_fp)}")
         # logger_data.debug(f"{cfg_fp}")
         # Get config dict
@@ -266,17 +267,15 @@ def parse_train_args(args, main_cfg, cwd_ready):
             logger_data.debug(f"{equals_line}\n{msg}\n{equals_line}")
             for msg in log_msgs:
                 logger_data.debug(msg)
-            logger_data.debug("")
+            logger.debug("")
     if model_names:
         if cfg_data['cfgs']:
             logger_func = logger.warning
         else:
             logger_func = logger.error
         logger_func("Couldn't find the config file for the following "
-                    f"models: {model_names}")
-        logger.info(f"Check the name or abbreviation of the models provided to "
-                    "the script")
-        logger_data.info("")
+                    f"models: {model_names}\nCheck the name or abbreviation of "
+                    "the models provided to the script")
     train_models.train(cfg_data['cfgs'])
     return 0
 
@@ -310,6 +309,14 @@ parentheses).
     # TODO: package name too? instead of program name (e.g. train_models.py)
     parser.add_argument('-v', '--version', action='version',
                         version='%(prog)s v{}'.format(pymlu.__version__))
+    parser.add_argument(
+        '--loglvl', dest='logging_level', default='INFO',
+        choices=['debug', 'info', 'warning', 'error'],
+        help='')
+    parser.add_argument(
+        '--logfmt', dest='logging_formatter', default='only_msg',
+        choices=['console', 'simple', 'only_msg'],
+        help='')
     subparsers = parser.add_subparsers(
         title='subcommands', description=None, dest='subparser_name',
         help=None)
@@ -442,7 +449,7 @@ def main():
             return args.func(args, is_cwd_ready())
         else:
             # Get main config here because we don't want to show logging when listing
-            main_cfg, cwd_ready = get_main_config()
+            main_cfg, cwd_ready = get_main_config(args)
             if args.subparser_name == 'data':
                 return args.func(main_cfg, cwd_ready)
             elif args.subparser_name == 'edit':
