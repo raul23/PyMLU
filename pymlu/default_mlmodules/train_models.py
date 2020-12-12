@@ -2,15 +2,14 @@
 TODO
 """
 from pymlu import genutils as ge, mlutils as ml
-
 logger = ge.init_log(__name__)
-logger_data = ge.init_log('data')
 
 
 def train(configs):
     # ---------
     # Load data
     # ---------
+    logger.info("Loading dataset")
     data = ml.Dataset(config=configs[0])
 
     # For each model, get its config dict
@@ -18,15 +17,14 @@ def train(configs):
         # ---------
         # Get model
         # ---------
-        logger_data.info("")
+        logger.info("")
         logger.info(f"Training model #{i}: {model_cfg.model.model_name}")
         clf = ml.get_model(model_config=model_cfg.model)
 
         # -----------
         # Train model
         # -----------
-        logger.info(f"Training model")
-        logger.debug(f"Model: \n{clf}")
+        logger.debug(f"{clf}")
         clf.fit(data.X_train, data.y_train)
         score = clf.score(data.X_train, data.y_train)
         logger.info(f"Score on train: {score}")
